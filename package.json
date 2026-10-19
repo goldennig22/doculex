@@ -1,0 +1,33 @@
+{
+  "name": "doculex",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@prisma/client": "^7.10.1",
+    "ai": "^7.0.143",
+    "axios": "^1.20.0",
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "fastify": "^5.12.7",
+    "pg": "^8.23.1",
+    "unpdf": "^1.9.1",
+    "vitest": "^4.1.12",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "prisma": "^7.10.1",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
