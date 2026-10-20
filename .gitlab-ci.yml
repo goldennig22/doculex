@@ -30,21 +30,21 @@ test:
   stage: test
   script: npm test
 
-deploy_to_vps:
-  stage: deploy
-  image: alpine:3.20
-  resource_group: production        # never two deploys at once
-  environment:
-    name: production
-  rules:
-    - if: $CI_COMMIT_BRANCH == "main"
-  before_script:                    # replaces the default npm ci; no Node needed here
-    - apk add --no-cache openssh-client
-    - eval $(ssh-agent -s)
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
-    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
-  script:
-    - ssh "$VPS_USER@$VPS_IP" "DEPLOY_BRANCH='$CI_COMMIT_BRANCH' DEPLOY_PATH='$DOCULEX_DEPLOY_PATH' bash '$DOCULEX_DEPLOY_PATH/deploy.sh'"
-  after_script:
-    - ssh-agent -k > /dev/null 2>&1 || true
+# deploy_to_vps:
+#   stage: deploy
+#   image: alpine:3.20
+#   resource_group: production        # never two deploys at once
+#   environment:
+#     name: production
+#   rules:
+#     - if: $CI_COMMIT_BRANCH == "main"
+#   before_script:                    # replaces the default npm ci; no Node needed here
+#     - apk add --no-cache openssh-client
+#     - eval $(ssh-agent -s)
+#     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+#     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+#     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+#   script:
+#     - ssh "$VPS_USER@$VPS_IP" "DEPLOY_BRANCH='$CI_COMMIT_BRANCH' DEPLOY_PATH='$DOCULEX_DEPLOY_PATH' bash '$DOCULEX_DEPLOY_PATH/deploy.sh'"
+#   after_script:
+#     - ssh-agent -k > /dev/null 2>&1 || true
