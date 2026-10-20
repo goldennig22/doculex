@@ -54,7 +54,6 @@ let llmCache: { at: number; result: CheckResult } | null = null;
 export async function checkLlm(): Promise<CheckResult> {
   if (llmCache && Date.now() - llmCache.at < 60_000) return llmCache.result;
   const provider = PROVIDERS[env.LLM_PROVIDER];
-  console.log(provider);
   const result = await timed(async () => {
     const key = provider.key();
     if (!key) throw new Error(`${env.LLM_PROVIDER} API key missing`);

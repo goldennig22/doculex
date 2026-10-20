@@ -8,6 +8,8 @@
   "main": "src/index.ts",
   "scripts": {
     "test": "vitest run",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "dev": "tsx watch src/server.ts",
@@ -32,13 +34,19 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.5",
     "drizzle-kit": "^0.31.11",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^17.13.0",
     "prisma": "^7.10.1",
     "tsx": "^4.23.15",
-    "typescript": "^7.0.2"
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "typescript-7": "npm:typescript@^7.0.2",
+    "typescript-eslint": "^8.72.0"
   },
-  "engines": { 
-    "node": ">=22 <23" 
+  "engines": {
+    "node": ">=22 <23"
   }
 }
