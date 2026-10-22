@@ -1,3 +1,4 @@
+import { FastifyReply } from "fastify";
 import z from "zod";
 
 
@@ -29,4 +30,24 @@ const nullableStringField = z.preprocess((value) => {
   return value;
 }, z.string().trim().nullable().optional());
 
-export { boolField, nullableStringField };
+const failedResponse = (reply: FastifyReply, code = 422, message: string, errors?: unknown) => {
+  return reply
+  .code(code)
+  .send({ 
+    status: 'failed', 
+    message, 
+    ...(errors ? { errors } : {})
+  });
+}
+
+const successResponse = (reply: FastifyReply, code = 200, data: unknown) => {
+  return reply
+  .code(code)
+  .send({ 
+    status: 'success', 
+    data  
+  });
+}
+
+
+export { boolField, nullableStringField, failedResponse, successResponse };

@@ -1,6 +1,6 @@
 import type { FastifyPluginAsync } from 'fastify';
-import type { CheckResult } from '../services/health.js';
-import { checkHealth } from '../controllers/health.controller.js';
+import type { CheckResult } from '../services/health.service';
+import { checkHealth } from '../controllers/health.controller';
 
 export type HealthChecks = {
   database: () => Promise<CheckResult>;

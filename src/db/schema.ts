@@ -11,3 +11,15 @@ export const documents = pgTable('documents', {
   pageCount: integer('page_count').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const chunks = pgTable('chunks', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  documentId: uuid('document_id').notNull(),
+  part: integer('part').notNull().default(0),
+  articleRef: text('article_ref').notNull(),
+  pageStart: integer('page_start').notNull(),
+  pageEnd: integer('page_end').notNull(),
+  lang: text('lang').notNull().default('fr'),
+  content: text('content').notNull(),
+  tokenCount: integer('token_count'),
+})

@@ -11,6 +11,7 @@ const EnvSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   GEMINI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
+  ADMIN_API_KEY: z.string().min(32),
 });
 
 export const env = EnvSchema.parse(process.env);

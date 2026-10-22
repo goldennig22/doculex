@@ -15,6 +15,13 @@
       "when": 1792507916891,
       "tag": "0001_documents",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792689413937,
+      "tag": "0002_damp_outlaw_kid",
+      "breakpoints": true
     }
   ]
 }
