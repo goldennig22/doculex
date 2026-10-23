@@ -1,7 +1,7 @@
 import { extractText } from "unpdf";
 import { db } from "../db/client";
 import { chunks, documents } from "../db/schema";
-import { Chunk, PageText, UploadDocumentInput } from "../interfaces/documents";
+import { UploadDocumentInput } from "../interfaces/documents";
 import { chunkByArticle } from "./chunker.service";
 import { eq } from "drizzle-orm";
 

@@ -25,3 +25,7 @@ export type ChunkDraft = {
   content: string;
   tokenCount: number;
 };
+
+export type ShowDocumentInput = {
+    documentId: string
+}
