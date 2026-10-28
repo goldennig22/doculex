@@ -16,9 +16,13 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node --env-file=.env dist/server.js",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "documents:embed-missing": "npx tsx src/scripts/embed-missing.ts",
+    "documents:evaluate-retrieval": "npx tsx src/scripts/eval-retrieval.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.87",
+    "@ai-sdk/google": "^4.0.104",
     "@fastify/multipart": "^10.1.6",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
@@ -36,6 +40,7 @@
     "@types/node": "^26.6.5",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.13.0",
+    "form-auto-content": "^3.2.1",
     "globals": "^17.13.0",
     "tsx": "^4.23.15",
     "typescript": "npm:@typescript/typescript6@^6.0.2",

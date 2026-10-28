@@ -4,21 +4,29 @@ import { chunks, documents } from "../db/schema";
 import { UploadDocumentInput } from "../interfaces/documents";
 import { chunkByArticle } from "./chunker.service";
 import { eq } from "drizzle-orm";
+import { embedDocuments } from "./embeddings.service";
+import { env } from "../config/env";
 
 export const ingestDocument = async (input: UploadDocumentInput) => {
     const { totalPages, text } = await extractText(new Uint8Array(input.file), { mergePages: false });
     const pages = text.map((t, i) => ({ page: i + 1, text: t }));
-    const drafts = chunkByArticle(pages);            // ← yours
+    const drafts = chunkByArticle(pages);
+    const embeddings = await embedDocuments(drafts.map(c => c.content))
 
     return db.transaction(async (tx) => {
         const [doc] = await tx.insert(documents)
         .values({ title: input.title, language: input.language, sourceUrl: input.sourceUrl, pageCount: totalPages })
         .returning({ id: documents.id });
         if (drafts.length) {
-        await tx.insert(chunks).values(drafts.map((c) => ({ ...c, documentId: doc.id, lang: input.language })));
+        await tx.insert(chunks).values(drafts.map((c, i) => ({ 
+            ...c, 
+            documentId: doc.id, 
+            lang: input.language, 
+            embedding: embeddings[i],
+            embeddingModel: env.EMBEDDING_MODEL 
+        })));
         }
-        const document = await getDocuments(doc.id);
-        return { document, chunkCount: drafts.length };
+        return { documentId: doc.id, chunkCount: drafts.length };
     });
 }
 

@@ -1,14 +1,4 @@
 export type PageText = { page: number; text: string };
-export type Chunk = {
-    id: string; 
-    documentId: string; 
-    articleRef: string;
-    pageStart: number;
-    pageEnd: number;
-    content: string;
-    lang: string,
-    tokenCount: number|null,
-};
 
 export type UploadDocumentInput = {
     file: Buffer,
@@ -23,6 +13,7 @@ export type ChunkDraft = {
   pageStart: number;
   pageEnd: number;
   content: string;
+  sectionPath: string|null;
   tokenCount: number;
 };
 

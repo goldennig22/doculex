@@ -8,5 +8,5 @@ export type HealthChecks = {
 };
 
 export const healthRoutes = (checks: HealthChecks): FastifyPluginAsync => async (app) => {
-    app.get('/health', async (_req, reply) => { return await checkHealth(_req, reply, checks) });
+    app.get('/health', async (req, reply) => { return await checkHealth(req, reply, checks) });
 };

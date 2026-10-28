@@ -22,6 +22,34 @@
       "when": 1792689413937,
       "tag": "0002_damp_outlaw_kid",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792779262933,
+      "tag": "0003_quick_norrin_radd",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1793178779694,
+      "tag": "0004_worried_firedrake",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793182029516,
+      "tag": "0005_smart_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793182819352,
+      "tag": "0006_sloppy_whizzer",
+      "breakpoints": true
     }
   ]
 }

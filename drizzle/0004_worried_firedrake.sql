@@ -1,0 +1,2 @@
+CREATE INDEX "chunks_embedding_hnsw" ON "chunks" USING hnsw ("embedding" vector_cosine_ops);--> statement-breakpoint
+ALTER TABLE "chunks" ADD CONSTRAINT "chunks_doc_article_part" UNIQUE("document_id","article_ref","part");

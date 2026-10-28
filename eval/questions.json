@@ -1,0 +1,154 @@
+{
+  "rag_test_questions": [
+    {
+      "id": 1,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "Quelles sont les conditions requises pour qu'une personne physique ait la qualité de commerçant selon l'Acte uniforme sur le droit commercial généra ?",
+      "expected_answer_summary": "Sont commerçants ceux qui font de l'accomplissement d'actes de commerce par nature leur profession habituelle (Article 2), tout en disposant de la capacité juridique et en ne subissant aucune incompatibilité ou interdiction.",
+      "expected_articles": ["2", "6", "7", "8"],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 2,
+      "language": "en",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "Under the OHADA Uniform Act on General Commercial Law, what are the legal consequences if a person subject to registration fails to register in the Trade and Personal Property Rights Register (RCCM) within the prescribed time limits?",
+      "expected_answer_summary": "Failure to register within the prescribed time limits prevents the person from invoking their commercial status until registration is effected, while keeping them subject to the obligations and liabilities of a merchant.",
+      "expected_articles": ["25", "26"],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 3,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "Quel est le délai dans lequel une personne physique ayant la qualité de commerçant doit requérir son immatriculation au RCCM après le début de son exploitation ?",
+      "expected_answer_summary": "Toute personne physique ayant la qualité de commerçant doit, dans le premier mois d'exploitation de son commerce, requérir son immatriculation au Registre du Commerce et du Crédit Mobilier (Article 25).",
+      "expected_articles": ["25"],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 4,
+      "language": "en",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "How does the AUDCG define the status of an \"Entreprenant\", and what are the rules regarding the annual turnover thresholds?",
+      "expected_answer_summary": "An Entreprenant is an individual entrepreneur who performs professional, commercial, craft, or agricultural acts upon a simple declaration, provided their annual turnover does not exceed the regulatory thresholds set for the minimal treasury system over two consecutive years (Article 30).",
+      "expected_articles": ["30"],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 5,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "Quelles sont les mentions obligatoires minimales que doit contenir la demande d'immatriculation d'une personne physique au RCCM ?",
+      "expected_answer_summary": "La demande d'immatriculation doit notamment indiquer les nom, prénoms et domicile personnel, les date et lieu de naissance, la nationalité, les activités exercées, ainsi que l'adresse du principal établissement (Article 25).",
+      "expected_articles": ["25"],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 6,
+      "language": "en",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "What presumption is established by Article 59 of the AUDCG regarding any person registered in the Trade and Personal Property Rights Register (RCCM)?",
+      "expected_answer_summary": "Any person registered in the RCCM is presumed, barring proof to the contrary, to have the status of a merchant, except for certain non-commercial individuals or legal entities designated by law (Article 59).",
+      "expected_articles": ["59"],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 7,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "Le mineur non émancipé peut-il avoir la qualité de commerçant ou effectuer des actes de commerce selon l'Acte uniforme sur le droit commercial généra ?",
+      "expected_answer_summary": "Non, le mineur, sauf s'il est émancipé, ne peut avoir la qualité de commerçant ni effectuer des actes de commerce (Article 7).",
+      "expected_articles": ["7"],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 8,
+      "language": "en",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "Under what specific conditions does the spouse of a merchant acquire the status of a merchant under the AUDCG?",
+      "expected_answer_summary": "The spouse of a merchant only acquires the status of a merchant if they perform acts of commerce as a habitual profession and separately from those of their spouse (Article 7).",
+      "expected_articles": ["7"],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 9,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS",
+      "question": "Quelles sont les conditions et les majorités requises pour la transformation d'une société à responsabilité limitée (SARL) en une autre forme de société selon l'AUDSCGIE ?",
+      "expected_answer_summary": "La transformation nécessite une décision des associés prise aux conditions de majorité requises pour la modification des statuts, ainsi qu'un rapport du commissaire aux comptes attestant que l'actif net est au moins égal au capital social.",
+      "expected_articles": ["187", "370"],
+      "expected_title": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS"
+    },
+    {
+      "id": 10,
+      "language": "en",
+      "category": "in_document",
+      "source_document": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS",
+      "question": "What is the minimum registered capital required to form a private limited company (SARL) under OHADA company law?",
+      "expected_answer_summary": "The registered capital of a private limited company shall be at least one million (1,000,000) CFA francs (Article 311 of the AUDSCGIE).",
+      "expected_articles": ["311"],
+      "expected_title": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS"
+    },
+    {
+      "id": 11,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS",
+      "question": "Quelles sont les mentions obligatoires devant figurer dans les statuts d'une société commerciale selon l'article 13 de l'AUDSCGIE ?",
+      "expected_answer_summary": "Les statuts doivent notamment mentionner la forme de la société, sa dénomination sociale, son objet social, son siège social, sa durée, le montant du capital social ainsi que les modalités de répartition des bénéfices.",
+      "expected_articles": ["13"],
+      "expected_title": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS"
+    },
+    {
+      "id": 12,
+      "language": "en",
+      "category": "in_document",
+      "source_document": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS",
+      "question": "What is the maximum duration for which a commercial company can be set up under OHADA company law?",
+      "expected_answer_summary": "The duration of the company may not exceed ninety-nine years (Article 28 of the AUDSCGIE).",
+      "expected_articles": ["28"],
+      "expected_title": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS"
+    },
+    {
+      "id": 13,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS",
+      "question": "Quelles sont les règles applicables en matière de responsabilité des dirigeants sociaux en cas de faute commise dans l'exercice de leurs fonctions ?",
+      "expected_answer_summary": "Les dirigeants sociaux sont responsables individuellement ou solidairement, selon les cas, envers la société ou les tiers, soit des infractions aux lois et règlements, soit des violations des statuts, soit des fautes commises dans leur gestion.",
+      "expected_articles": ["161", "165"],
+      "expected_title": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS"
+    },
+    {
+      "id": 14,
+      "language": "en",
+      "category": "out_of_document",
+      "source_document": "none",
+      "question": "What are the specific labor law requirements for dismissing an employee under the CEMAC regional labor code?",
+      "expected_answer_summary": "This information is not present in the uploaded OHADA Uniform Acts, which focus on commercial law and commercial companies rather than labor regulations.",
+      "expected_articles": [],
+      "expected_title": "none"
+    },
+    {
+      "id": 15,
+      "language": "fr",
+      "category": "out_of_document",
+      "source_document": "none",
+      "question": "Quel est le taux de l'impôt sur les sociétés (IS) applicable au Cameroun pour l'exercice fiscal en cours ?",
+      "expected_answer_summary": "Cette information ne se trouve pas dans les textes uniformes OHADA fournis sur le droit commercial généra et les sociétés commerciales.",
+      "expected_articles": [],
+      "expected_title": "none"
+    }
+  ]
+}

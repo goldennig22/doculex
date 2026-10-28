@@ -12,7 +12,8 @@ export default defineConfig([
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'error',
-      'no-console': 'warn', // use Fastify's logger (app.log) instead
+      'no-console': 'off', // use Fastify's logger (app.log) instead
+      'no-control-regex': 'off',
     },
   },
 ]);

@@ -1,0 +1,1 @@
+ALTER TABLE "chunks" ALTER COLUMN "section_path" DROP NOT NULL;

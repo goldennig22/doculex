@@ -1,0 +1,1 @@
+ALTER TABLE "chunks" ADD COLUMN "section_path" text NOT NULL;

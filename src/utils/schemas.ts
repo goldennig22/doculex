@@ -7,3 +7,8 @@ export const uploadDocumentSchema = z.object({
     language: z.enum(['fr', 'en']),
     sourceUrl: z.url().optional(),
 })
+
+export const searchQuestionSchema = z.object({
+    question: z.string().trim().min(3)
+})
+
