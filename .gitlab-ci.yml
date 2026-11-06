@@ -28,6 +28,14 @@ typecheck:
 
 test:
   stage: test
+  services:
+    - name: pgvector/pgvector:pg17
+      alias: postgres
+  variables:
+    POSTGRES_USER: doculex
+    POSTGRES_PASSWORD: doculex
+    POSTGRES_DB: doculex_test
+    DATABASE_URL: postgres://doculex:doculex@postgres:5432/doculex_test
   script: npm test
 
 # deploy_to_vps:

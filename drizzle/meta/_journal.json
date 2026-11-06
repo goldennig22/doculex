@@ -50,6 +50,20 @@
       "when": 1793182819352,
       "tag": "0006_sloppy_whizzer",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793451803089,
+      "tag": "0007_stiff_jocasta",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1793789918909,
+      "tag": "0008_lexeme_stats",
+      "breakpoints": true
     }
   ]
 }

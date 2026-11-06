@@ -1,9 +1,12 @@
+import { sql } from 'drizzle-orm';
 import { unique } from 'drizzle-orm/pg-core';
+import { customType } from 'drizzle-orm/pg-core';
 import { index } from 'drizzle-orm/pg-core';
 import { vector } from 'drizzle-orm/pg-core';
 import { pgTable, uuid, text, integer, timestamp, pgEnum } from 'drizzle-orm/pg-core';
 
 export const documentKind = pgEnum('document_kind', ['statute', 'decision']);
+const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' });
 
 export const documents = pgTable('documents', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -28,7 +31,11 @@ export const chunks = pgTable('chunks', {
   tokenCount: integer('token_count'),
   embedding: vector('embedding', { dimensions: 1536 }),   // nullable: filled after insert
   embeddingModel: text('embedding_model'),
+  contentTsv: tsvector('content_tsv').generatedAlwaysAs(sql`to_tsvector(
+  CASE WHEN lang = 'en' THEN 'english'::regconfig ELSE 'french'::regconfig END,
+  coalesce(section_path, '') || ' ' || content)`),
 },(t) => [
   unique('chunks_doc_article_part').on(t.documentId, t.articleRef, t.part),
   index('chunks_embedding_hnsw').using('hnsw', t.embedding.op('vector_cosine_ops')),
+  index('chunks_content_tsv_gin').using('gin', t.contentTsv),
 ])

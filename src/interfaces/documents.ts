@@ -20,3 +20,12 @@ export type ChunkDraft = {
 export type ShowDocumentInput = {
     documentId: string
 }
+
+export type SearchResult = {
+    id: string,
+    articleRef: string,
+    pageStart: number,
+    content: string,
+    similarity?: number,
+    documentTitle: string
+}
