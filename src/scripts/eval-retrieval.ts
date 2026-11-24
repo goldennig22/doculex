@@ -7,7 +7,7 @@ import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { sql } from '../db/client';
 import { detectLanguage, hybridSearch, searchByKeywords, searchByVector } from '../services/search.service';
-import type { SearchResult } from '../interfaces/documents';
+import type { SearchResult } from '../interfaces/types';
 
 type Q = {
   id: number;

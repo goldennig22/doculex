@@ -8,7 +8,11 @@ export const uploadDocumentSchema = z.object({
     sourceUrl: z.url().optional(),
 })
 
+export const documentIdSchema = z.object({
+    documentId: z.uuid(),
+})
+
 export const searchQuestionSchema = z.object({
-    question: z.string().trim().min(3)
+    question: z.string().trim().min(3).max(1000)
 })
 

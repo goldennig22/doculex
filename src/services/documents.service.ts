@@ -1,7 +1,7 @@
 import { extractText } from "unpdf";
 import { db } from "../db/client";
 import { chunks, documents } from "../db/schema";
-import { UploadDocumentInput } from "../interfaces/documents";
+import { UploadDocumentInput } from "../interfaces/types";
 import { chunkByArticle, embeddingText } from "./chunker.service";
 import { eq, sql } from "drizzle-orm";
 import { embedDocuments } from "./embeddings.service";
@@ -45,8 +45,10 @@ export const getDocuments = async (id?: string) => {
     return data;
 }
 
-export const deleteDocument = async (id: string) => {
-  await db.delete(chunks).where(eq(chunks.documentId, id));
-  await db.delete(documents).where(eq(documents.id, id));
+/** false when no document has this id. Its chunks go with it (ON DELETE CASCADE), in the same statement. */
+export const deleteDocument = async (id: string): Promise<boolean> => {
+  const deleted = await db.delete(documents).where(eq(documents.id, id)).returning({ id: documents.id });
+  if (deleted.length === 0) return false;
   await refreshLexemeStats();
+  return true;
 };

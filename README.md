@@ -18,7 +18,7 @@ Built with Node.js 22, TypeScript, Fastify, Postgres + pgvector, Drizzle ORM and
 | 2 | Ingest: PDF upload, page extraction, article chunker | Done |
 | 3 | Embeddings and vector search, first evaluation | Done |
 | 4 | Hybrid search (full-text + vectors, RRF), measured against vector-only | Done: **vector-only kept** (see Results) |
-| 5 | `/ask`: cited answers with Claude, `found: false` refusal | Next |
+| 5 | `/ask`: cited answers with Claude, verified quotes, two-layer `found: false`, model fallback, rate limit, query log, answer-level eval | Done |
 | 6 | Production deploy to VPS from GitLab CI | Planned |
 | 7 | Final evaluation, demo page, write-up | Planned |
 
@@ -35,24 +35,53 @@ flowchart LR
     D --> E[Embed<br/>section path + text]
   end
 
-  E --> DB[(Postgres + pgvector<br/>documents · chunks<br/>lexeme_stats)]
+  E --> DB[(Postgres + pgvector<br/>documents · chunks<br/>lexeme_stats · queries)]
 
-  subgraph Ask["Ask (public)"]
+  subgraph Ask["Ask (public, 10 / min / IP)"]
     Q[Question FR / EN] --> S[Vector search<br/>HNSW, cosine]
-    S --> T{Relevant?}
+    S --> T{Top similarity<br/>≥ MIN_SIMILARITY?}
     T -- no --> N[found: false]
-    T -- yes --> L[LLM + Zod schema]
-    L --> R[Answer with citations]
+    T -- yes --> P[Top 5 articles,<br/>all parts joined]
+    P --> L[LLM + Zod schema<br/>Claude → OpenAI → Gemini]
+    L --> F{found?}
+    F -- no --> N
+    F -- yes --> V{A quote found<br/>verbatim in its source?}
+    V -- no --> N
+    V -- yes --> R[Answer + citations<br/>document · article · pages]
   end
 
   DB --> S
   DB -. measured, not used in v1 .-> K[Keyword search + RRF]
-
-  classDef planned stroke-dasharray: 5 5;
-  class T,N,L,R planned;
 ```
 
-Dashed boxes are the Weekend 5 work (`/ask` with Claude). Today the ask endpoint returns the ranked articles.
+Every question writes one row to `queries`: where it stopped (`threshold`, `llm`, `no_valid_citation`, `error`, or answered), the model that answered, tokens, cost and latency.
+
+### The ask pipeline
+
+- **Layer 1, similarity threshold.** If the best article is further than `MIN_SIMILARITY` from the question, the API refuses without calling the LLM. It costs only the embedding.
+- **Sources are whole articles.** The top 5 articles (one chunk each after de-duplication) are rebuilt from all their parts, so a long article isn't cut in the middle of a condition.
+- **Structured output.** The LLM must return `{ found, answer, citations: [{ source, quote }], confidence }`, validated with Zod. It answers in the language of the question, even from a source in the other language.
+- **Layer 2a, the model refuses** with `found: false` when the sources don't contain the answer.
+- **Layer 2b, quote verification.** Each citation must name a source that was sent and quote at least 20 characters found verbatim in it (case, whitespace and apostrophes normalised). Citations that fail are dropped; if none is left, the answer is not shown. A model can invent a plausible sentence; it can't make that sentence appear in Article 2.
+- **Fallback.** If Claude fails or times out, OpenAI answers, then Gemini. The model that answered is logged.
+
+Example response (shape):
+
+```json
+{
+  "status": "success",
+  "data": {
+    "found": true,
+    "answer": "Est commerçant celui qui fait de l'accomplissement d'actes de commerce par nature sa profession (art. 2) …",
+    "citations": [
+      { "document": "Acte uniforme OHADA du 15 décembre 2010 …", "article": "2", "pages": [3, 3],
+        "quote": "fait de l'accomplissement d'actes de commerce par nature sa profession" }
+    ],
+    "confidence": "high",
+    "language": "fr"
+  }
+}
+```
 
 ### The chunker: the core of the project
 
@@ -103,7 +132,30 @@ Measured with `src/scripts/eval-retrieval.ts` on a hand-written set of bilingual
 | Lowest, in-document hit | 0.663 |
 | Highest, out-of-document | 0.652 |
 
-The two ranges almost touch, so a similarity cutoff alone can't separate answerable from unanswerable questions. The plan for Weekend 5 has two layers: a low cutoff (~0.60) that rejects clear noise without calling the LLM, then the LLM itself must return `found: false` when the retrieved articles don't contain the answer. The question set now has 8 out-of-document questions to measure both layers.
+The two ranges almost touch, so a similarity cutoff alone can't separate answerable from unanswerable questions. Hence two layers: a low cutoff (0.60) that rejects clear noise without calling the LLM, then the LLM itself returns `found: false` when the retrieved articles don't contain the answer. The question set has 8 out-of-document questions to measure both layers.
+
+### Answer quality (`/ask`)
+
+Measured with `src/scripts/eval-answers.ts`, which runs the real pipeline on the same 31 questions. **No second LLM grades the answers.** The grade uses only facts the pipeline already checked:
+
+| Question | Verdict | Rule |
+| --- | --- | --- |
+| In-document | **correct** | Answered, and at least one citation names an expected article of the expected Act. Citations have passed quote verification, so this means "grounded in verbatim text of the right article". |
+| In-document | wrong article | Answered, but every citation names another article. Read by hand: it can be a labelling error. |
+| In-document | missed | Refused. Split by layer, and by whether the expected article was among the sources: if it was, it's a generation miss; if not, a retrieval miss. |
+| Out-of-document | **refused** | `found: false`, split by layer (`threshold` / `llm` / `no_valid_citation`). |
+| Out-of-document | answered | A failure: the answer is printed for review. |
+| Any answered | language | The answer is in the language of the question (rule 4 of the prompt). |
+
+What this does not check: whether the sentence itself is right. The script prints every miss with its `expected_answer_summary` next to the answer, to be read by hand. It also reports mean, p50 and p95 latency, cost per LLM call, and which model answered.
+
+| | Result |
+| --- | --- |
+| In-document answered with an expected article | *to be measured* / 23 |
+| Out-of-document refused | *to be measured* / 8 (threshold · llm) |
+| Answers in the question's language | *to be measured* |
+| Latency (p50 / p95) | *to be measured* |
+| Cost per LLM call | *to be measured* (prices in `src/config/prices.ts` are placeholders until production) |
 
 ---
 
@@ -120,7 +172,17 @@ The two ranges almost touch, so a similarity cutoff alone can't separate answera
 | **Vector-only in v1** | Measured: every hybrid setting scored lower (see Results). |
 | **Admin API key compared with `timingSafeEqual`** | Avoids leaking the key through response timing. |
 | **Upload limits in multipart, PDF checked by magic bytes** | The 20 MB limit stops reading before buffering; the client's `mimetype` can be faked, `%PDF-` cannot. |
-| **LLM always mocked in tests** | Tests stay fast, free and deterministic; quality is measured separately by the eval script. |
+| **LLM always mocked in tests** | Tests stay fast, free and deterministic; quality is measured separately by the eval scripts. |
+| **Two refusal layers** | The threshold is free and stops clear noise; the LLM catches near misses the threshold can't separate (see the relevance threshold above). |
+| **Citations by source number + quote verification** | The model cites `source: 1`, never an article number it could invent; the server maps it to document, article and pages, and drops any quote not found in that source. |
+| **Minimum quote length (20 characters)** | An empty quote is a substring of every text; a short one (*"de commerce"*) matches most articles. Neither proves anything. |
+| **Three-model fallback (Claude → OpenAI → Gemini)** | Providers fail independently; an answer from the fallback beats a 500. The model that answered is logged. |
+| **One `queries` row per question, every path** | Each refusal layer, error rate, cost and latency can be measured from production data, not guessed. Logging failures are reported but never break an answer. |
+| **Answer eval without an LLM judge** | A judge would be a second model to trust and pay for. Verified citations to expected articles are deterministic; the meaning is checked by reading the printed misses. |
+| **Rate limit on `/ask` only, 10 / min / IP (`@fastify/rate-limit`)** | `/ask` is the only route that costs money. Fixed window per IP, kept in memory (one process on one VPS). The library bounds memory with an LRU and sends `retry-after`, which a hand-written `Map` would not. |
+| **`trustProxy` set to Caddy's address, not `true`** | Behind Caddy every request comes from 127.0.0.1, so all clients would share one bucket; trusting any proxy would let a client fake `X-Forwarded-For`. |
+| **Global error handler, `requestId` in every error** | 5xx responses never contain SQL, query parameters, stack traces or provider messages; the full error (with a Drizzle error's `cause`) is logged under the same request id. |
+| **`ON DELETE CASCADE` on `chunks.document_id`** | Deleting a document is one atomic statement; no orphan chunks if the second of two deletes fails. |
 
 ### Things that went wrong, and what they taught
 
@@ -129,12 +191,16 @@ The two ranges almost touch, so a similarity cutoff alone can't separate answera
 - **PostgreSQL 17 runs materialized-view queries with a restricted `search_path`**, so `ts_stat('SELECT … FROM chunks')` failed until written as `public.chunks`.
 - **Postgres guessed a parameter type from context:** `count(*) * $1` made `$1` a `bigint`, so `0.1` failed until cast with `::float8`.
 - **A PDF without a Unicode character map** produced NUL characters that Postgres rejects in `text` columns.
+- **The first migration was empty.** `0000_enable_pgvector.sql` never contained `CREATE EXTENSION vector`; the dev database had it from a manual step. The first fresh database (for tests) failed at `type "vector" does not exist`, and so would the VPS. CI now migrates a fresh database on every push.
+- **The integration tests never ran in CI.** The README said they did, but `RUN_DB_TESTS` was never set, and a moved test file still mocked a wrong path. Nothing failed, because nothing ran.
+- **An empty quote passed verification:** `"any text".includes("")` is `true`. Caught while writing the unit tests, before any real traffic.
+- **Vitest on Windows** loaded itself twice when the project was opened as `c:\` instead of `C:\`, and every suite failed with `Cannot read properties of undefined (reading 'config')`.
 
 ---
 
 ## API
 
-All routes are under `/api`. Responses use one shape: `{ status: "success", data }` or `{ status: "failed", message, errors? }`.
+All routes are under `/api`. Responses use one shape: `{ status: "success", data }` or `{ status: "failed", message, errors?, requestId? }`. Every error raised outside a controller (invalid JSON, rate limit, server errors) carries a `requestId` that matches the server log; a 5xx only ever says `Internal server error`.
 
 | Method + path | Auth | Description |
 | --- | --- | --- |
@@ -142,8 +208,13 @@ All routes are under `/api`. Responses use one shape: `{ status: "success", data
 | `POST /api/documents/upload` | `x-api-key` | Multipart: `file` (PDF, max 20 MB), `title`, `language` (`fr`\|`en`), `sourceUrl?` → stored document |
 | `GET /api/documents` | None | List documents |
 | `GET /api/documents/:documentId/show` | None | One document |
-| `DELETE /api/documents/:documentId/delete` | `x-api-key` | Delete a document and its chunks |
-| `POST /api/documents/questions/ask` | None | `{ question }` → ranked articles (Weekend 5: cited answer) |
+| `DELETE /api/documents/:documentId/delete` | `x-api-key` | Delete a document and its chunks; `422` if the id isn't a uuid, `404` if no such document |
+| `POST /api/ai/ask` | None | `{ question }` (3–1000 characters) → `{ found, answer, citations[], confidence, language }`; `422` invalid, `429` over 10 requests / minute / IP |
+
+```bash
+curl -X POST http://localhost:3000/api/ai/ask -H "content-type: application/json" \
+  -d '{"question": "Quelles sont les conditions pour avoir la qualité de commerçant ?"}'
+```
 
 ---
 
@@ -177,27 +248,58 @@ curl -X POST http://localhost:3000/api/documents/upload \
 | `DATABASE_URL` | Yes | e.g. `postgres://doculex:doculex@localhost:5433/doculex` |
 | `ADMIN_API_KEY` | Yes | At least 32 characters; protects write endpoints |
 | `EMBEDDING_MODEL` | Yes | Embedding model id |
-| `GEMINI_API_KEY` | For embeddings | Embedding provider key |
-| `LLM_PROVIDER` | No | `anthropic` \| `openai` \| `google` (health check and, from Weekend 5, answers) |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | For answers | LLM provider key |
+| `GEMINI_API_KEY` | Yes | Embeddings, and the last fallback model |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Yes | Primary and second answer models |
+| `LLM_MODEL` | Yes | Primary answer model (Anthropic), e.g. `claude-haiku-5-5` |
+| `LLM_2ND_MODEL` | Yes | Second model (OpenAI), used if the primary fails |
+| `LLM_FALLBACK_MODEL` | Yes | Last model (Gemini) |
+| `MIN_SIMILARITY` | Yes | Layer-1 cutoff; below it `/ask` refuses without calling the LLM (`0.6`) |
+| `LLM_PROVIDER` | No | `anthropic` \| `openai` \| `google`, for the health check |
+| `TRUST_PROXY` | No | Address of the reverse proxy (`127.0.0.1` for Caddy on the same VPS); unset in development |
 | `EMBEDDING_PARALLEL_CALLS` | No | Default `2`, gentle on free-tier rate limits |
 | `PORT` | No | Default `3000` |
+| `TEST_DATABASE_URL` / `RUN_DB_TESTS` | Tests only | A separate, migrated database for the Postgres integration tests, and `1` to run them |
+
+The model names must match the keys of `src/config/prices.ts`, or `cost_usd` is logged as `null`.
 
 ### Scripts
 
 | Command | What it does |
 | --- | --- |
 | `npm run dev` | Start with reload |
-| `npm test` | Vitest (set `RUN_DB_TESTS=1` to include the Postgres integration tests) |
+| `npm test` | Vitest (with `RUN_DB_TESTS=1` and `TEST_DATABASE_URL`, also the Postgres integration tests) |
 | `npm run lint` / `npm run typecheck` | ESLint / `tsc --noEmit` |
 | `npm run db:generate -- --name=<change>` | New migration from `schema.ts` |
 | `npm run db:migrate` | Apply migrations |
-| `npx tsx --env-file=.env src/scripts/eval-retrieval.ts --mode vector` | Retrieval evaluation (`vector` \| `keyword` \| `hybrid`, `--kw-weight`, `--same-lang`) |
-| `npx tsx --env-file=.env src/scripts/embed-missing.ts` | Embed chunks that have no vector yet |
+| `npm run documents:evaluate-retrieval -- --mode vector` | Retrieval evaluation (`vector` \| `keyword` \| `hybrid`, `--kw-weight`, `--same-lang`) |
+| `npm run documents:evaluate-answers` | Answer evaluation through the real `/ask` pipeline (`--ids 1,2`, `--show-all`, `--out file.json`). Calls the LLM: costs money, and writes to `queries` |
+| `npm run documents:embed-missing` | Embed chunks that have no vector yet |
 
 ### Tests
 
-52 test cases: the chunker (25), search (9 unit + 7 against real Postgres + pgvector), upload route (8) and health (3). The LLM and the embedding provider are always mocked; only the eval script calls them for real. In CI, a `pgvector/pgvector:pg17` service runs migrations and the integration tests.
+95 test cases. The LLM and the embedding provider are always mocked; only the eval scripts call them for real.
+
+| Suite | Tests | Covers |
+| --- | --- | --- |
+| Chunker | 25 | Headings, page ranges, header/footer and hyphen cleaning, section paths, long-article splits |
+| Search | 16 | 9 unit (RRF, language detection, de-duplication) + 7 against real Postgres + pgvector |
+| Ask service | 11 | Every `stopped_at` path, citation mapping, the three-model fallback, a failed log insert |
+| Answer helpers | 11 | Quote verification (missing source, wrong quote, empty/short quote, normalisation) and cost |
+| `/ask` route | 10 | `422`, `429` per IP (invalid requests count too), other routes unlimited, no leak in a `500` |
+| Answer grading | 9 | Eval verdicts, percentiles, summary |
+| Upload route | 7 | `401`, `422`, `413`, `201`, `500` without internals |
+| Delete route | 3 | `422`, `404`, `200` |
+| Health | 3 | `ok`, `degraded`, `503` |
+
+Locally, the integration tests need their own database (never the dev one: they insert fixtures and rank over every chunk):
+
+```bash
+docker exec pgvector-db createdb -U doculex doculex_test
+DATABASE_URL=postgres://doculex:doculex@localhost:5433/doculex_test npm run db:migrate
+# then in .env: TEST_DATABASE_URL=postgres://doculex:doculex@localhost:5433/doculex_test and RUN_DB_TESTS=1
+```
+
+In CI, a `pgvector/pgvector:pg17` service starts empty: every migration is applied from zero, then the whole suite runs, integration tests included.
 
 ---
 
@@ -207,14 +309,16 @@ curl -X POST http://localhost:3000/api/documents/upload \
 src/
   routes/        URL → controller mapping, API-key group
   controllers/   validate input, call services, shape responses
-  services/      chunker, documents (ingest), embeddings, search, health
+  services/      chunker, documents (ingest), embeddings, search, ask (pipeline + fallback),
+                 answer (prompt, schema, quote verification), queries (log), health
   middleware/    requireAdminKey
+  config/        env (Zod-validated), prices per model
   db/            Drizzle schema and client
-  scripts/       eval-retrieval, embed-missing
-  utils/         Zod schemas, validator, response helpers
+  scripts/       eval-retrieval, eval-answers (+ lib/answer-grading), embed-missing
+  utils/         Zod schemas, validator, response helpers, error handler
 drizzle/         SQL migrations (including the custom pgvector and lexeme_stats ones)
 eval/            questions.json: the evaluation set
-test/            Vitest suites
+test/            Vitest suites: api/ (routes), services/, scripts/
 ```
 
 ---
@@ -223,10 +327,11 @@ test/            Vitest suites
 
 **Phase 1 (v1, by end of November)**
 
-- `/ask`: Claude answers from retrieved articles only, Zod-validated `{ found, answer, citations[], confidence, language }`, two-layer `found: false`
-- Fallback LLM provider, rate limit on `/ask`, every query logged with latency and cost
-- Global error handler (no SQL or stack traces in responses), foreign key with cascade on `chunks.document_id`
-- Deploy to a VPS over SSH from GitLab CI, HTTPS with Caddy
+- ~~`/ask` with verified citations, two-layer `found: false`, model fallback, rate limit, query log, error handler, cascade delete~~ (Weekend 5, done)
+- Run the answer eval and fill in the Answer quality table; tune `MIN_SIMILARITY` with it
+- One overall deadline for the fallback chain: today each of the 3 models gets 20 s, so the worst case is about a minute
+- Real prices in `src/config/prices.ts` before production
+- Deploy to a VPS over SSH from GitLab CI, HTTPS with Caddy (`TRUST_PROXY=127.0.0.1`)
 - Query translation for cross-language keyword search, then re-measure hybrid
 
 **Phase 2 (v2, December–January)**

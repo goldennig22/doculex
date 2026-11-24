@@ -119,13 +119,13 @@ describe('POST /api/documents/upload', () => {
     );
   });
 
-  // it('returns 500 without leaking internals when ingestion fails', async () => {
-  //   vi.mocked(ingestDocument).mockRejectedValueOnce(new Error('insert into "chunks" … failed'));
+  it('returns 500 without leaking internals when ingestion fails', async () => {
+    vi.mocked(ingestDocument).mockRejectedValueOnce(new Error('insert into "chunks" … failed'));
 
-  //   const res = await upload(validFields());
+    const res = await upload(validFields());
 
-  //   expect(res.statusCode).toBe(500);
-  //   expect(res.json().status).toBe('failed');
-  //   expect(res.body).not.toContain('insert into');
-  // });
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual({ status: 'failed', message: 'Internal server error', requestId: expect.any(String) });
+    expect(res.body).not.toContain('insert into');
+  });
 });

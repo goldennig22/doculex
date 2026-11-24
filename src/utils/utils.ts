@@ -49,5 +49,7 @@ const successResponse = (reply: FastifyReply, code = 200, data: unknown) => {
   });
 }
 
+const QUESTIONS_CUTOFF = 0.6;
 
-export { boolField, nullableStringField, failedResponse, successResponse };
+
+export { boolField, nullableStringField, failedResponse, successResponse, QUESTIONS_CUTOFF };

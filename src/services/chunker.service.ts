@@ -1,4 +1,7 @@
-import { ChunkDraft, PageText } from "../interfaces/documents";
+import { and, eq } from "drizzle-orm";
+import { ChunkDraft, PageText } from "../interfaces/types";
+import { db } from "../db/client";
+import { chunks } from "../db/schema";
 // ─── Patterns ────────────────────────────────────────────────────────────────
  
 // An article heading starts a line: "Article 1er", "Art.2.-", "ARTICLE 12 bis", "Article 35-1".
@@ -353,5 +356,17 @@ export function chunkByArticle(pages: PageText[]): ChunkDraft[] {
   });
  
   return drafts;
+}
+
+export async function getChunksByArticle(article: string, documentId: string)
+{
+  return await db.select()
+  .from(chunks)
+  .where(
+    and(
+      eq(chunks.articleRef, article),
+      eq(chunks.documentId, documentId)
+    )
+  )
 }
  

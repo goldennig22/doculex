@@ -1,4 +1,3 @@
-// test/services/search.test.ts
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import { eq } from 'drizzle-orm';
 import { detectLanguage, hybridSearch, rrf, searchByKeywords, searchByVector } from '../../../src/services/search.service';
@@ -7,7 +6,7 @@ import { db, sql } from '../../../src/db/client';
 import { chunks, documents } from '../../../src/db/schema';
 
 // Never call the embedding provider in tests: the query vector is chosen by each test.
-vi.mock('../../src/services/embeddings.service', () => ({
+vi.mock('../../../src/services/embeddings.service', () => ({
   embedQuery: vi.fn(),
   embedDocuments: vi.fn(),
   EMBEDDING_MODEL: 'test-model',

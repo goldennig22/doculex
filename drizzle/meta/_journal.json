@@ -64,6 +64,20 @@
       "when": 1793789918909,
       "tag": "0008_lexeme_stats",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795467506030,
+      "tag": "0009_fat_dreadnoughts",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1795544012025,
+      "tag": "0010_chunks_document_fk",
+      "breakpoints": true
     }
   ]
 }

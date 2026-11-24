@@ -1,5 +1,7 @@
 import { sql } from 'drizzle-orm';
 import { unique } from 'drizzle-orm/pg-core';
+import { boolean } from 'drizzle-orm/pg-core';
+import { real } from 'drizzle-orm/pg-core';
 import { customType } from 'drizzle-orm/pg-core';
 import { index } from 'drizzle-orm/pg-core';
 import { vector } from 'drizzle-orm/pg-core';
@@ -20,7 +22,7 @@ export const documents = pgTable('documents', {
 
 export const chunks = pgTable('chunks', {
   id: uuid('id').primaryKey().defaultRandom(),
-  documentId: uuid('document_id').notNull(),
+  documentId: uuid('document_id').notNull().references(() => documents.id, { onDelete: 'cascade' }),
   part: integer('part').notNull().default(0),
   articleRef: text('article_ref').notNull(),
   pageStart: integer('page_start').notNull(),
@@ -39,3 +41,18 @@ export const chunks = pgTable('chunks', {
   index('chunks_embedding_hnsw').using('hnsw', t.embedding.op('vector_cosine_ops')),
   index('chunks_content_tsv_gin').using('gin', t.contentTsv),
 ])
+
+export const queries = pgTable('queries', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  question: text('question').notNull(),
+  language: text('language').notNull(),
+  found: boolean('found').notNull(),
+  stoppedAt: text('stopped_at'),            // 'threshold' | 'llm' | 'no_valid_citation' | 'error' | null (answered)
+  topSimilarity: real('top_similarity'),
+  model: text('model'),
+  inputTokens: integer('input_tokens'),
+  outputTokens: integer('output_tokens'),
+  costUsd: real('cost_usd'),
+  latencyMs: integer('latency_ms').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});

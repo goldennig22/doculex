@@ -1,10 +1,8 @@
-import { cosineDistance, eq, isNotNull, sql, type SQL } from 'drizzle-orm';
+import { cosineDistance, eq, isNotNull, sql, type SQL, and, asc, or  } from 'drizzle-orm';
 import { embedQuery } from './embeddings.service';
 import { chunks, documents } from '../db/schema';
 import { db } from '../db/client';
-import type { SearchResult } from '../interfaces/documents';
-
-export type Lang = 'fr' | 'en';
+import type { Lang, SearchResult } from '../interfaces/types';
 
 // ─── Pure helpers (unit-tested, no database) ─────────────────────────────────
 
@@ -78,6 +76,7 @@ export async function searchByVector(question: string, k = 8): Promise<SearchRes
       content: chunks.content,
       similarity: sql<number>`1 - (${distance})`,
       documentTitle: documents.title,
+      documentId: documents.id,
     })
     .from(chunks)
     .innerJoin(documents, eq(chunks.documentId, documents.id))
@@ -107,6 +106,7 @@ export async function searchByKeywords(question: string, k = 20, lang?: Lang): P
       pageStart: chunks.pageStart,
       content: chunks.content,
       documentTitle: documents.title,
+      documentId: documents.id,
       rank,
     })
     .from(chunks)
@@ -147,4 +147,17 @@ export function dedupeByArticle<T extends { articleRef: string; documentTitle: s
     seen.add(key);
     return true;
   });
+}
+
+export async function getArticleParts(keys: { documentId: string; articleRef: string }[]) {
+  if (keys.length === 0) return [];
+  return db
+    .select({
+      documentId: chunks.documentId, articleRef: chunks.articleRef, part: chunks.part,
+      pageStart: chunks.pageStart, pageEnd: chunks.pageEnd,
+      sectionPath: chunks.sectionPath, content: chunks.content,
+    })
+    .from(chunks)
+    .where(or(...keys.map((k) => and(eq(chunks.documentId, k.documentId), eq(chunks.articleRef, k.articleRef)))))
+    .orderBy(asc(chunks.documentId), asc(chunks.articleRef), asc(chunks.part));
 }

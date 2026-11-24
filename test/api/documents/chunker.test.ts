@@ -1,4 +1,3 @@
-// test/services/chunker.service.test.ts
 import { describe, it, expect } from 'vitest';
 import {
   chunkByArticle,
@@ -8,7 +7,7 @@ import {
   selectHeadings,
   stripRepeatedLines
 } from '../../../src/services/chunker.service';
-import { PageText } from '../../../src/interfaces/documents';
+import { PageText } from '../../../src/interfaces/types';
 
 const HEADER = 'Acte uniforme relatif au droit commercial général – Journal Officiel OHADA';
 const page = (n: number, body: string): PageText => ({
