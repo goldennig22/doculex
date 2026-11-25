@@ -1,0 +1,13 @@
+# Keep secrets, local builds and anything not needed by the Dockerfile out of the build context.
+.env
+.env.*
+!.env.example
+.git
+node_modules
+dist
+.vitest
+coverage
+test
+eval
+deploy
+*.log

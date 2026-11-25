@@ -1,0 +1,72 @@
+# DocuLex production stack. Copied by CI to /opt/doculex/docker-compose.yml on the VPS; never edit it there.
+# Values come from /opt/doculex/.env (compose variables, written by hand, never in git) and
+# /opt/doculex/app.env (the app's secrets). IMAGE_TAG is overridden by deploy.sh during a deploy.
+name: doculex
+
+services:
+  db:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:?set in .env}  # superuser "postgres": admin, backups
+      DOCULEX_DB_PASSWORD: ${DOCULEX_DB_PASSWORD:?set in .env}        # read by db-init/01-init.sh only
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro   # runs once, when the volume is empty
+    # No `ports:` on purpose: only containers on the doculex network can reach Postgres.
+    # (A published port would bypass UFW: Docker writes its own iptables rules.)
+    networks: [doculex]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d doculex"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits: { memory: 768m }   # shared 4 GB VPS: cap what DocuLex can take from the other apps
+    logging: &logging
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }   # Docker logs grow forever otherwise
+
+  app:
+    image: ${DOCULEX_IMAGE:?set in .env}:${IMAGE_TAG:?set in .env or by deploy.sh}
+    restart: unless-stopped
+    init: true   # tiny PID 1 that forwards SIGTERM to node and reaps zombies
+    env_file: [app.env]
+    environment:
+      # Built here so the password lives in one place (.env). `environment` overrides app.env.
+      DATABASE_URL: postgres://doculex_app:${DOCULEX_DB_PASSWORD}@db:5432/doculex
+      NODE_ENV: production
+      HOST: 0.0.0.0     # inside the container; reachability is decided by `ports` below
+      PORT: "3000"
+      # nginx on the host reaches the container through the network's gateway, not 127.0.0.1.
+      TRUST_PROXY: 172.28.50.1
+    ports:
+      - "127.0.0.1:${DOCULEX_HOST_PORT:-5100}:3000"   # localhost only: the internet goes through nginx
+    depends_on:
+      db: { condition: service_healthy }
+    networks: [doculex]
+    healthcheck:
+      # 200 for ok and degraded, 503 when the database is down. deploy.sh demands "ok" separately.
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health > /dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    deploy:
+      resources:
+        limits: { memory: 512m }
+    logging: *logging
+
+networks:
+  doculex:
+    ipam:
+      config:
+        # Fixed so TRUST_PROXY can name the gateway. Check it is free on the VPS first:
+        #   docker network inspect $(docker network ls -q) --format '{{.Name}} {{range .IPAM.Config}}{{.Subnet}}{{end}}'
+        - subnet: 172.28.50.0/24
+          gateway: 172.28.50.1
+
+volumes:
+  pgdata: {}

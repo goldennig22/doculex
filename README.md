@@ -180,7 +180,7 @@ What this does not check: whether the sentence itself is right. The script print
 | **One `queries` row per question, every path** | Each refusal layer, error rate, cost and latency can be measured from production data, not guessed. Logging failures are reported but never break an answer. |
 | **Answer eval without an LLM judge** | A judge would be a second model to trust and pay for. Verified citations to expected articles are deterministic; the meaning is checked by reading the printed misses. |
 | **Rate limit on `/ask` only, 10 / min / IP (`@fastify/rate-limit`)** | `/ask` is the only route that costs money. Fixed window per IP, kept in memory (one process on one VPS). The library bounds memory with an LRU and sends `retry-after`, which a hand-written `Map` would not. |
-| **`trustProxy` set to Caddy's address, not `true`** | Behind Caddy every request comes from 127.0.0.1, so all clients would share one bucket; trusting any proxy would let a client fake `X-Forwarded-For`. |
+| **`trustProxy` set to the proxy's address, not `true`** | Behind nginx every request comes from the proxy; as the container sees it, that is the Docker network's gateway (`172.28.50.1`), not `127.0.0.1`. Without it all clients share one rate-limit bucket; trusting any proxy would let a client fake `X-Forwarded-For`. |
 | **Global error handler, `requestId` in every error** | 5xx responses never contain SQL, query parameters, stack traces or provider messages; the full error (with a Drizzle error's `cause`) is logged under the same request id. |
 | **`ON DELETE CASCADE` on `chunks.document_id`** | Deleting a document is one atomic statement; no orphan chunks if the second of two deletes fails. |
 
@@ -255,7 +255,7 @@ curl -X POST http://localhost:3000/api/documents/upload \
 | `LLM_FALLBACK_MODEL` | Yes | Last model (Gemini) |
 | `MIN_SIMILARITY` | Yes | Layer-1 cutoff; below it `/ask` refuses without calling the LLM (`0.6`) |
 | `LLM_PROVIDER` | No | `anthropic` \| `openai` \| `google`, for the health check |
-| `TRUST_PROXY` | No | Address of the reverse proxy (`127.0.0.1` for Caddy on the same VPS); unset in development |
+| `TRUST_PROXY` | No | Address of the reverse proxy as the app sees it; set in `deploy/docker-compose.prod.yml` (`172.28.50.1`). Unset in development |
 | `EMBEDDING_PARALLEL_CALLS` | No | Default `2`, gentle on free-tier rate limits |
 | `PORT` | No | Default `3000` |
 | `TEST_DATABASE_URL` / `RUN_DB_TESTS` | Tests only | A separate, migrated database for the Postgres integration tests, and `1` to run them |
@@ -331,7 +331,7 @@ test/            Vitest suites: api/ (routes), services/, scripts/
 - Run the answer eval and fill in the Answer quality table; tune `MIN_SIMILARITY` with it
 - One overall deadline for the fallback chain: today each of the 3 models gets 20 s, so the worst case is about a minute
 - Real prices in `src/config/prices.ts` before production
-- Deploy to a VPS over SSH from GitLab CI, HTTPS with Caddy (`TRUST_PROXY=127.0.0.1`)
+- Deploy to a VPS from GitLab CI: Docker image per commit, nginx + HTTPS in front (see `deploy/README.md`)
 - Query translation for cross-language keyword search, then re-measure hybrid
 
 **Phase 2 (v2, December–January)**

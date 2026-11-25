@@ -1,13 +1,18 @@
 # GitLab CI/CD — DocuLex
-# Every push: lint -> typecheck -> test. Push to main: + deploy to the VPS.
+# Every push: lint -> typecheck -> test. Push to main: + build the image -> deploy (when enabled).
 #
-# CI/CD variables (Settings > CI/CD > Variables), all Protected + main protected:
-#   SSH_PRIVATE_KEY      – private key; its public half is in the VPS user's authorized_keys
-#   SSH_KNOWN_HOSTS      – output of `ssh-keyscan <VPS_IP>` run once from your PC
-#   VPS_IP, VPS_USER     – where to deploy
-#   DOCULEX_DEPLOY_PATH  – absolute path of the DocuLex checkout on the VPS
+# CI/CD variables (Settings > CI/CD > Variables). main must be a protected branch.
+#   DEPLOY_ENABLED        – "true" once the VPS is set up (deploy/README.md). Until then no deploy job.
+#   SSH_PRIVATE_KEY_B64   – Protected + Masked. `base64 -w0 doculex_deploy` (one line, so GitLab can mask it).
+#                           Its public half is in the deploy user's ~/.ssh/authorized_keys on the VPS.
+#   SSH_KNOWN_HOSTS       – Protected. The VPS host key line(s), checked against the server's own fingerprint.
+#   VPS_IP, VPS_USER      – Protected. Where to deploy. VPS_SSH_PORT if it isn't 22.
+#   DOCULEX_DEPLOY_PATH   – Protected. /opt/doculex
+#   DOCULEX_PUBLIC_URL    – https://<subdomain>, no trailing slash. Checked after every deploy.
+# The app's secrets (API keys, DB passwords) are NOT here: they live only in /opt/doculex/.env and app.env.
+# Registry login in CI uses GitLab's predefined CI_REGISTRY_* variables (a per-job token).
 
-stages: [lint, typecheck, test] #add "deploy" whenever ready to deploy
+stages: [lint, typecheck, test, build, deploy]
 
 default:
   image: node:22-alpine
@@ -39,24 +44,61 @@ test:
     TEST_DATABASE_URL: postgres://doculex:doculex@postgres:5432/doculex_test   # used by vitest.config.ts
     RUN_DB_TESTS: "1"
   script:
-    - npm run db:migrate   # a fresh database: proves every migration applies from zero
+    - npm run db:migrate   # the production migrator, on a fresh database: proves every migration applies from zero
     - npm test
 
-# deploy_to_vps:
-#   stage: deploy
-#   image: alpine:3.20
-#   resource_group: production        # never two deploys at once
-#   environment:
-#     name: production
-#   rules:
-#     - if: $CI_COMMIT_BRANCH == "main"
-#   before_script:                    # replaces the default npm ci; no Node needed here
-#     - apk add --no-cache openssh-client
-#     - eval $(ssh-agent -s)
-#     - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
-#     - mkdir -p ~/.ssh && chmod 700 ~/.ssh
-#     - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
-#   script:
-#     - ssh "$VPS_USER@$VPS_IP" "DEPLOY_BRANCH='$CI_COMMIT_BRANCH' DEPLOY_PATH='$DOCULEX_DEPLOY_PATH' bash '$DOCULEX_DEPLOY_PATH/deploy.sh'"
-#   after_script:
-#     - ssh-agent -k > /dev/null 2>&1 || true
+build_image:
+  stage: build
+  image: docker:29
+  services:
+    - docker:29-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+  cache: []                         # no npm cache: the build happens inside the Dockerfile
+  before_script:                    # replaces the default npm ci
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+    # Tagged with the commit SHA, never only "latest": a tag names exactly one build, which is what makes rollback work.
+    - docker build --pull -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA" .
+    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_SHA"
+
+deploy_to_vps:
+  stage: deploy
+  image: alpine:3.22
+  resource_group: production        # never two deploys at once
+  environment:
+    name: production                # Operate > Environments: "Rollback" re-runs an older deploy job (older SHA)
+    url: $DOCULEX_PUBLIC_URL
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $DEPLOY_ENABLED == "true"
+  cache: []
+  before_script:                    # replaces the default npm ci; no Node needed here
+    - apk add --no-cache openssh-client curl jq
+    - eval $(ssh-agent -s)
+    - echo "$SSH_PRIVATE_KEY_B64" | base64 -d | ssh-add - > /dev/null
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    # Pinned host key: ssh refuses to connect if the server presents a different one (no man-in-the-middle).
+    - echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 644 ~/.ssh/known_hosts
+  script:
+    - DEST="$VPS_USER@$VPS_IP"
+    - PORT="${VPS_SSH_PORT:-22}"
+    # The server's compose file and scripts always match the commit being deployed (also on rollback).
+    - scp -P "$PORT" deploy/docker-compose.prod.yml "$DEST:$DOCULEX_DEPLOY_PATH/docker-compose.yml"
+    - scp -P "$PORT" deploy/deploy.sh deploy/backup.sh deploy/restore-test.sh "$DEST:$DOCULEX_DEPLOY_PATH/"
+    - scp -P "$PORT" -r deploy/db-init "$DEST:$DOCULEX_DEPLOY_PATH/"
+    # Pull, migrate, start, require "ok" on localhost; rolls back by itself if the new version is unhealthy.
+    - ssh -p "$PORT" "$DEST" "bash '$DOCULEX_DEPLOY_PATH/deploy.sh' '$CI_COMMIT_SHA'"
+    # End to end through DNS, nginx and TLS, as a user would reach it.
+    - |
+      for i in $(seq 1 10); do
+        if curl -fsS --max-time 10 "$DOCULEX_PUBLIC_URL/api/health" | jq -e '.status == "ok"' > /dev/null; then
+          echo "public health check ok"; exit 0
+        fi
+        sleep 5
+      done
+      echo "public health check failed:"; curl -sS --max-time 10 "$DOCULEX_PUBLIC_URL/api/health"; echo
+      exit 1
+  after_script:
+    - ssh-agent -k > /dev/null 2>&1 || true

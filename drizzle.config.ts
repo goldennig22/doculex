@@ -2,7 +2,11 @@ import { defineConfig } from 'drizzle-kit';
 
 // drizzle-kit doesn't read .env by itself; Node 22 can load it.
 // The try/catch keeps CI working, where there is no .env file and variables come from GitLab.
-try { process.loadEnvFile(); } catch {}
+try { 
+  process.loadEnvFile(); 
+} catch(error) {
+  throw error;
+}
 
 export default defineConfig({
   dialect: 'postgresql',

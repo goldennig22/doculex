@@ -7,7 +7,7 @@ const app = buildApp();
 // Run the server
 const start = async () => {
   try {
-    await app.listen({ port: env.PORT, host: '0.0.0.0' });
+    await app.listen({ port: env.PORT, host: env.HOST });
     for (const signal of ['SIGINT', 'SIGTERM']) {
       process.on(signal, async () => {
         await app.close();

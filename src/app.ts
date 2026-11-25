@@ -11,7 +11,7 @@ import rateLimit from '@fastify/rate-limit'
 export function buildApp(opts: { checks?: HealthChecks } = {}) {
   const app = Fastify({
     logger: env.NODE_ENV !== 'test',
-    // Behind Caddy every request comes from 127.0.0.1: trust X-Forwarded-For from the proxy's address only,
+    // Behind nginx every request comes from the proxy (the Docker gateway in production): trust X-Forwarded-For from its address only,
     // otherwise all clients share one rate-limit bucket (or, with `true`, anyone can fake their IP).
     trustProxy: env.TRUST_PROXY || false, // unset or empty → trust no proxy
   });
