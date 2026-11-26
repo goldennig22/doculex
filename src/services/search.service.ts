@@ -1,8 +1,28 @@
-import { cosineDistance, eq, isNotNull, sql, type SQL, and, asc, or  } from 'drizzle-orm';
+import { cosineDistance, eq, isNotNull, sql, type SQL, and, asc, or, inArray } from 'drizzle-orm';
 import { embedQuery } from './embeddings.service';
-import { chunks, documents } from '../db/schema';
+import { chunks, decisions, documents } from '../db/schema';
 import { db } from '../db/client';
-import type { Lang, SearchResult } from '../interfaces/types';
+import type { DocumentKind, Lang, SearchResult } from '../interfaces/types';
+
+// ─── What may be searched ────────────────────────────────────────────────────
+
+/**
+ * Which kinds of document a search covers. It can only NARROW what is searchable, never widen it:
+ * a draft, in-review or rejected decision is excluded whatever the caller passes.
+ * Default: statutes only, so every v1 caller (/ask, the eval scripts) behaves exactly as before.
+ */
+export type SearchScope = { kinds?: DocumentKind[] };
+const STATUTES_ONLY: DocumentKind[] = ['statute'];
+
+/**
+ * The one definition of "searchable": a statute, or a decision a reviewer has published.
+ * Every query that reads chunks or documents for the public goes through it, inside the SQL:
+ * filtering after the search would still let a draft take a top-5 place and set topSimilarity (layer 1).
+ * The lexeme_stats view repeats it (drizzle/0012_lexeme_stats_searchable.sql): change both together.
+ */
+export const searchableDocuments = (kinds: DocumentKind[] = STATUTES_ONLY): SQL => sql`(${inArray(documents.kind, kinds)}
+  AND (${documents.kind} = 'statute' OR EXISTS (
+    SELECT 1 FROM ${decisions} WHERE ${decisions.documentId} = ${documents.id} AND ${decisions.status} = 'published')))`;
 
 // ─── Pure helpers (unit-tested, no database) ─────────────────────────────────
 
@@ -60,11 +80,15 @@ const tsq = (lang: Lang, q: string): SQL => sql`(
   FROM unnest(to_tsvector(${sql.raw(`'${CONFIG[lang]}'`)}, ${q})) AS u
   WHERE u.lexeme NOT IN (
     SELECT word FROM lexeme_stats
-    WHERE ndoc > (SELECT count(*)::float8 * ${MAX_DF}::float8 FROM chunks)
+    WHERE ndoc > (
+      SELECT count(*)::float8 * ${MAX_DF}::float8 FROM ${chunks}
+      INNER JOIN ${documents} ON ${chunks.documentId} = ${documents.id}
+      WHERE ${searchableDocuments(['statute', 'decision'])}
+    )
   )
 )`;
 
-export async function searchByVector(question: string, k = 8): Promise<SearchResult[]> {
+export async function searchByVector(question: string, k = 8, { kinds }: SearchScope = {}): Promise<SearchResult[]> {
   const q = await embedQuery(question);
   const distance = cosineDistance(chunks.embedding, q);
 
@@ -80,7 +104,9 @@ export async function searchByVector(question: string, k = 8): Promise<SearchRes
     })
     .from(chunks)
     .innerJoin(documents, eq(chunks.documentId, documents.id))
-    .where(isNotNull(chunks.embedding))
+    // HNSW reads ef_search (40) candidates, THEN applies the WHERE: with many unpublished decisions
+    // the limit may not fill. Fine while drafts are few; with pgvector >= 0.8, `SET LOCAL hnsw.iterative_scan` fixes it.
+    .where(and(isNotNull(chunks.embedding), searchableDocuments(kinds)))
     .orderBy(distance) // ascending DISTANCE, so Postgres can use the HNSW index
     .limit(k);
 }
@@ -89,7 +115,9 @@ export async function searchByVector(question: string, k = 8): Promise<SearchRes
  * Full-text search. With `lang`, only chunks written in that language are searched:
  * French words in a question cannot meaningfully match an English text, and vice versa.
  */
-export async function searchByKeywords(question: string, k = 20, lang?: Lang): Promise<SearchResult[]> {
+export async function searchByKeywords(
+  question: string, k = 20, lang?: Lang, { kinds }: SearchScope = {},
+): Promise<SearchResult[]> {
   const langs: Lang[] = lang ? [lang] : ['fr', 'en'];
   const match = sql.join(
     langs.map((l) => sql`(${chunks.lang} = ${l} AND ${chunks.contentTsv} @@ ${tsq(l, question)})`),
@@ -111,7 +139,7 @@ export async function searchByKeywords(question: string, k = 20, lang?: Lang): P
     })
     .from(chunks)
     .innerJoin(documents, eq(chunks.documentId, documents.id))
-    .where(match)
+    .where(and(sql`(${match})`, searchableDocuments(kinds)))
     .orderBy(sql`${rank} DESC`)
     .limit(k);
 }
@@ -119,17 +147,17 @@ export async function searchByKeywords(question: string, k = 20, lang?: Lang): P
 export type HybridOptions = {
   keywordWeight?: number; // 1 = equal to vector; lower = keyword list counts less
   sameLanguageOnly?: boolean; // experiment: keyword search only in the question's language
-};
+} & SearchScope;
 
 export async function hybridSearch(
   question: string,
   k = 8,
-  { keywordWeight = 0.5, sameLanguageOnly = false }: HybridOptions = {},
+  { keywordWeight = 0.5, sameLanguageOnly = false, kinds }: HybridOptions = {},
 ) {
   const lang = detectLanguage(question);
   const [vector, keyword] = await Promise.all([
-    searchByVector(question, 20),
-    searchByKeywords(question, 20, sameLanguageOnly ? lang : undefined),
+    searchByVector(question, 20, { kinds }),
+    searchByKeywords(question, 20, sameLanguageOnly ? lang : undefined, { kinds }),
   ]);
   return {
     results: dedupeByArticle(rrf([vector, keyword], { weights: [1, keywordWeight] })).slice(0, k),
@@ -149,7 +177,8 @@ export function dedupeByArticle<T extends { articleRef: string; documentTitle: s
   });
 }
 
-export async function getArticleParts(keys: { documentId: string; articleRef: string }[]) {
+/** Same scope rule as the searches: a caller that guesses a draft's document id still gets nothing. */
+export async function getArticleParts(keys: { documentId: string; articleRef: string }[], { kinds }: SearchScope = {}) {
   if (keys.length === 0) return [];
   return db
     .select({
@@ -158,6 +187,10 @@ export async function getArticleParts(keys: { documentId: string; articleRef: st
       sectionPath: chunks.sectionPath, content: chunks.content,
     })
     .from(chunks)
-    .where(or(...keys.map((k) => and(eq(chunks.documentId, k.documentId), eq(chunks.articleRef, k.articleRef)))))
+    .innerJoin(documents, eq(chunks.documentId, documents.id))
+    .where(and(
+      searchableDocuments(kinds),
+      or(...keys.map((k) => and(eq(chunks.documentId, k.documentId), eq(chunks.articleRef, k.articleRef)))),
+    ))
     .orderBy(asc(chunks.documentId), asc(chunks.articleRef), asc(chunks.part));
 }

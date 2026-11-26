@@ -1,3 +1,5 @@
+import type { z } from 'zod';
+import type { askResponseSchema, citationSchema, langSchema } from '../utils/schemas';
 
 export type PageText = { page: number; text: string };
 
@@ -9,7 +11,7 @@ export type UploadDocumentInput = {
 }
 
 export type ChunkDraft = {
-  articleRef: string; // "1", "12 bis", "35-1"
+  articleRef: string; // statute: "1", "12 bis", "35-1"; decision: a section ("faits", "moyen-2", "dispositif")
   part: number; // 0 for the first (or only) part of an article
   pageStart: number;
   pageEnd: number;
@@ -58,19 +60,20 @@ export type UserQuery = {
     latencyMs: number,
 }
 
-export type Citation = { document: string; article: string; pages: number[]; quote: string };
-export type AskResponse = {
-  found: boolean;
-  answer: string | null;
-  citations: Citation[];
-  confidence: 'high' | 'medium' | 'low' | null;
-  language: Lang;
-};
+// Inferred from the response schemas, so the API docs, the serializer and the code can't disagree
+export type Citation = z.infer<typeof citationSchema>;
 
-export type Lang = 'fr' | 'en';
+export type AskResponse = z.infer<typeof askResponseSchema>;
+
+export type Lang = z.infer<typeof langSchema>;
 
 export type SourceRef = { document: string; article: string };
 
 export type AskTrace = UserQuery & { sourceArticles: SourceRef[] }; 
 
 export type AskResult = { response: AskResponse; trace: AskTrace };
+
+export type Role = 'admin' | 'reviewer' | 'contributor';
+
+export type ApiKeyIdentity = { id: string | null; role: Role; label: string }; 
+export type DocumentKind = 'statute' | 'decision';

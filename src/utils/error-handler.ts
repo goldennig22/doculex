@@ -1,4 +1,5 @@
 import { FastifyError, FastifyReply, FastifyRequest } from "fastify";
+import z from "zod";
 
 /**
  * Last stop for every thrown error.
@@ -7,6 +8,18 @@ import { FastifyError, FastifyReply, FastifyRequest } from "fastify";
  * the full error (with a Drizzle error's `cause`: the Postgres code, detail, constraint) goes to the log.
  */
 export function errorHandler(error: FastifyError, request: FastifyRequest, reply: FastifyReply): FastifyReply {
+    // A request that failed its route schema (src/utils/zod-fastify.ts): Fastify tags the ZodError with this code.
+    // Both checks matter: a ZodError thrown anywhere else (a service parsing data) is our bug and must stay a 500.
+    if (error.code === 'FST_ERR_VALIDATION' && error instanceof z.ZodError) {
+        request.log.info({ err: error }, 'validation failed');
+        return reply.code(422).send({
+            status: 'failed',
+            message: 'Validation failed', // not error.message: for a ZodError that is a JSON dump of every issue
+            errors: z.flattenError(error).fieldErrors,
+            requestId: request.id,
+        });
+    }
+
     const status = error.statusCode && error.statusCode >= 400 ? error.statusCode : 500;
 
     if (status >= 500) {

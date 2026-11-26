@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DocuLex · OHADA business law, cited</title>
+<style>
+  :root { --bg: #fafaf7; --fg: #1d1d1b; --muted: #6b6b66; --line: #e3e2dc; --accent: #1f5f8b; --warn-bg: #fff6e0; --warn: #8a5a00; --err: #a0302a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161614; --fg: #ecebe6; --muted: #9c9b95; --line: #34332f; --accent: #7db7e0; --warn-bg: #2e2716; --warn: #e3b860; --err: #ec8a84; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 46rem; margin: 0 auto; padding: 3rem 1.25rem 4rem; }
+  h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+  .lede { color: var(--muted); margin: 0 0 2rem; }
+  form { display: flex; flex-direction: column; gap: .75rem; }
+  textarea { width: 100%; min-height: 5.5rem; padding: .75rem; font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
+  textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+  button { font: inherit; cursor: pointer; border-radius: 8px; }
+  button[type=submit] { padding: .55rem 1.2rem; background: var(--accent); color: var(--bg); border: 0; font-weight: 600; }
+  button[type=submit]:disabled { opacity: .55; cursor: wait; }
+  .example { padding: .3rem .7rem; background: transparent; color: var(--muted); border: 1px solid var(--line); font-size: .85rem; }
+  .example:hover { color: var(--fg); }
+  #result { margin-top: 2rem; }
+  #result:empty { display: none; }
+  .answer { font-size: 1.05rem; margin: 0 0 1.25rem; white-space: pre-line; }
+  .meta { color: var(--muted); font-size: .85rem; margin-bottom: .5rem; }
+  .citations { list-style: none; padding: 0; margin: 0; display: grid; gap: .5rem; }
+  details { border: 1px solid var(--line); border-radius: 8px; padding: .6rem .8rem; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  summary .doc { color: var(--muted); font-weight: 400; }
+  blockquote { margin: .6rem 0 0; padding-left: .8rem; border-left: 3px solid var(--line); font-style: italic; }
+  .notice { border-radius: 8px; padding: 1rem 1.1rem; background: var(--warn-bg); color: var(--warn); }
+  .notice strong { display: block; margin-bottom: .25rem; }
+  .error { color: var(--err); }
+  footer { margin-top: 3rem; color: var(--muted); font-size: .85rem; }
+  footer a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>DocuLex</h1>
+  <p class="lede">Ask about OHADA business law in French or English. Every answer cites the article and pages it comes from, and every quote is checked word for word.</p>
+
+  <form id="ask">
+    <label for="question" class="meta">Your question (3 to 1000 characters)</label>
+    <textarea id="question" name="question" minlength="3" maxlength="1000" required
+      placeholder="Un mineur non émancipé peut-il être commerçant ?"></textarea>
+    <div class="row">
+      <button type="submit">Ask</button>
+      <button type="button" class="example">Un mineur non émancipé peut-il être commerçant ?</button>
+      <button type="button" class="example">What is the maximum duration of a company?</button>
+      <button type="button" class="example">Quel est le taux normal de la TVA au Cameroun ?</button>
+    </div>
+  </form>
+
+  <section id="result" aria-live="polite"></section>
+
+  <footer>
+    Covers two Uniform Acts: general commercial law (2010, French) and commercial companies (1997, English).
+    A research aid, not legal advice. · <a href="/docs">API docs</a>
+  </footer>
+</main>
+
+<script>
+  // Only render() touches the page, and only through textContent: the answer is LLM output and must never be parsed as HTML.
+  const form = document.getElementById('ask');
+  const input = document.getElementById('question');
+  const submit = form.querySelector('button[type=submit]');
+  const result = document.getElementById('result');
+
+  /** @returns {Promise<{kind:'answered',data:object}|{kind:'notFound'}|{kind:'rateLimited',retryAfterSec:number}|{kind:'invalid',message:string}|{kind:'error',requestId?:string}>} */
+  async function ask(question) {
+    let res;
+    try {
+      res = await fetch('/api/ai/ask', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ question }),
+      });
+    } catch {
+      return { kind: 'error' }; // offline, or the server is unreachable
+    }
+    const body = await res.json().catch(() => null);
+    if (res.status === 429) return { kind: 'rateLimited', retryAfterSec: Number(res.headers.get('retry-after')) || 60 };
+    if (res.status === 422) return { kind: 'invalid', message: firstFieldError(body) };
+    if (!res.ok || !body || body.status !== 'success') return { kind: 'error', requestId: body?.requestId };
+    return body.data.found ? { kind: 'answered', data: body.data } : { kind: 'notFound' };
+  }
+
+  function firstFieldError(body) {
+    const errors = body?.errors ? Object.values(body.errors).flat() : [];
+    return errors[0] ?? 'Invalid question';
+  }
+
+  function el(tag, text, className) {
+    const node = document.createElement(tag);
+    if (text !== undefined) node.textContent = text;
+    if (className) node.className = className;
+    return node;
+  }
+
+  function citationElement(c) {
+    const details = el('details');
+    const summary = el('summary', `Art. ${c.article}`);
+    const pages = c.pages[0] === c.pages[1] ? `p. ${c.pages[0]}` : `pp. ${c.pages[0]}–${c.pages[1]}`;
+    summary.append(el('span', ` · ${pages} · ${c.document}`, 'doc'));
+    details.append(summary, el('blockquote', `“${c.quote}”`));
+    return details;
+  }
+
+  function notice(title, text) {
+    const box = el('div', undefined, 'notice');
+    box.append(el('strong', title), el('span', text));
+    return box;
+  }
+
+  function render(state) {
+    submit.disabled = state.kind === 'loading';
+    submit.textContent = state.kind === 'loading' ? 'Searching the Acts…' : 'Ask';
+    result.replaceChildren();
+    switch (state.kind) {
+      case 'loading':
+        result.append(el('p', 'Searching the articles, then checking every quote…', 'meta'));
+        break;
+      case 'answered': {
+        const { answer, citations, confidence } = state.data;
+        const list = el('ul', undefined, 'citations');
+        for (const c of citations) { const li = el('li'); li.append(citationElement(c)); list.append(li); }
+        result.append(
+          el('p', answer, 'answer'),
+          el('p', `Sources (${citations.length}) · confidence: ${confidence}. Click a source to see the verified quote.`, 'meta'),
+          list,
+        );
+        break;
+      }
+      case 'notFound':
+        result.append(notice('Not found in the Acts',
+          'DocuLex could not find this in the two Uniform Acts it covers, so it gives no answer rather than a guess. Try rephrasing, or ask about commercial law or companies.'));
+        break;
+      case 'rateLimited':
+        result.append(notice('Too many questions', `The demo allows 10 questions per minute. Try again in ${state.retryAfterSec} seconds.`));
+        break;
+      case 'invalid':
+        result.append(el('p', state.message, 'error'));
+        break;
+      case 'error':
+        result.append(el('p', 'Something went wrong on our side. Please try again.' + (state.requestId ? ` (reference: ${state.requestId})` : ''), 'error'));
+        break;
+    }
+  }
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const question = input.value.trim();
+    if (question.length < 3) return render({ kind: 'invalid', message: 'Please write at least 3 characters.' });
+    render({ kind: 'loading' });
+    render(await ask(question));
+  });
+
+  for (const button of document.querySelectorAll('.example')) {
+    button.addEventListener('click', () => { input.value = button.textContent; form.requestSubmit(); });
+  }
+</script>
+</body>
+</html>

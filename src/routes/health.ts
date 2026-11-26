@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 import type { CheckResult } from '../services/health.service';
 import { checkHealth } from '../controllers/health.controller';
+import { healthSchema } from './schemas/schemas';
 
 export type HealthChecks = {
   database: () => Promise<CheckResult>;
@@ -8,5 +9,5 @@ export type HealthChecks = {
 };
 
 export const healthRoutes = (checks: HealthChecks): FastifyPluginAsync => async (app) => {
-    app.get('/health', async (req, reply) => { return await checkHealth(req, reply, checks) });
+    app.get('/health', { schema: healthSchema }, async (req, reply) => { return await checkHealth(req, reply, checks) });
 };

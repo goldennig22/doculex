@@ -25,6 +25,8 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY drizzle ./drizzle
+# tsc only emits .js: the demo page is read from /app/public at startup, and the app won't boot without it
+COPY public ./public
 COPY package.json ./
 # Never run as root: a compromised process can't write outside what `node` owns.
 USER node

@@ -1,17 +1,23 @@
 import { extractText } from "unpdf";
 import { db } from "../db/client";
 import { chunks, documents } from "../db/schema";
-import { UploadDocumentInput } from "../interfaces/types";
+import { PageText, UploadDocumentInput } from "../interfaces/types";
 import { chunkByArticle, embeddingText } from "./chunker.service";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { embedDocuments } from "./embeddings.service";
 import { env } from "../config/env";
+import { searchableDocuments } from "./search.service";
 
-const refreshLexemeStats = () => db.execute(sql`REFRESH MATERIALIZED VIEW lexeme_stats`);
+export const refreshLexemeStats = () => db.execute(sql`REFRESH MATERIALIZED VIEW lexeme_stats`);
+
+/** The text of each page of a PDF, numbered from 1. */
+export const extractPages = async (file: Buffer): Promise<{ totalPages: number; pages: PageText[] }> => {
+  const { totalPages, text } = await extractText(new Uint8Array(file), { mergePages: false });
+  return { totalPages, pages: text.map((t, i) => ({ page: i + 1, text: t })) };
+};
 
 export const ingestDocument = async (input: UploadDocumentInput) => {
-  const { totalPages, text } = await extractText(new Uint8Array(input.file), { mergePages: false });
-  const pages = text.map((t, i) => ({ page: i + 1, text: t }));
+  const { totalPages, pages } = await extractPages(input.file);
   const drafts = chunkByArticle(pages);
   const embeddings = await embedDocuments(drafts.map(embeddingText));   // section path + content
 
@@ -32,15 +38,20 @@ export const ingestDocument = async (input: UploadDocumentInput) => {
   return result;
 };
 
+/**
+ * Public listing: statutes and published decisions only. A draft decision's title names the parties,
+ * and a draft's id answers 404, not 403: a 403 would confirm that it exists.
+ */
 export const getDocuments = async (id?: string) => {
-    let data = null;  
+    const visible = searchableDocuments(['statute', 'decision']);
+    let data = null;
     if (id) {
-        const response = await db.select().from(documents).where(eq(documents.id, id));
+        const response = await db.select().from(documents).where(and(eq(documents.id, id), visible));
         if (response.length > 0) {
             data =  response[0];
         }
     } else {
-        data = await db.select().from(documents);
+        data = await db.select().from(documents).where(visible);
     }
     return data;
 }

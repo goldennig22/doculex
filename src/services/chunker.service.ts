@@ -32,7 +32,7 @@ const KEEP_HYPHEN = new Set([
   'non', 'sous', 'co', 'auto', 'quasi', 'semi', 'vice', 'ex', 'anti', 'contre', 'extra', 'inter', 'self', 'pre', 'post',
 ]);
  
-const MAX_TOKENS = 800; // split an article only above this size
+export const MAX_TOKENS = 800; // split an article (or a decision section) only above this size
 const TARGET_TOKENS = 500; // aim for parts about this size
 const MAX_GAP = 5; // largest jump between article numbers we still accept
  
@@ -259,7 +259,7 @@ function trailingBlockStart(lines: Line[], notBefore: number): number {
 // ─── Splitting long articles ─────────────────────────────────────────────────
  
 /** Splits [start, end) on line breaks, cutting only after a line that ends a sentence. */
-function splitRange(text: string, start: number, end: number): Array<[number, number]> {
+export function splitRange(text: string, start: number, end: number): Array<[number, number]> {
   const parts: Array<[number, number]> = [];
   let partStart = start;
   let pos = start;
@@ -279,12 +279,19 @@ function splitRange(text: string, start: number, end: number): Array<[number, nu
   return parts;
 }
  
-// ─── Main entry point ────────────────────────────────────────────────────────
- 
-export function chunkByArticle(pages: PageText[]): ChunkDraft[] {
+// ─── Joining pages ───────────────────────────────────────────────────────────
+
+export type JoinedText = {
+  fullText: string;
+  /** Page number of a character offset in fullText. */
+  pageAt: (offset: number) => number;
+  /** Offset of the last non-space character in [s, e), so a part's last page isn't a blank trailing line. */
+  lastNonSpace: (s: number, e: number) => number;
+};
+
+/** Cleans the pages (artefacts, running headers) and joins them into one string that remembers its pages. */
+export function joinPages(pages: PageText[]): JoinedText {
   const cleaned = stripRepeatedLines(pages.map((p) => ({ ...p, text: cleanPageText(p.text) })));
- 
-  // 1. One string for the whole document + where each page starts in it
   const pageStarts: number[] = [];
   let fullText = '';
   for (const p of cleaned) {
@@ -301,7 +308,15 @@ export function chunkByArticle(pages: PageText[]): ChunkDraft[] {
     while (i > s && /\s/.test(fullText[i])) i--;
     return i;
   };
- 
+  return { fullText, pageAt, lastNonSpace };
+}
+
+// ─── Main entry point ────────────────────────────────────────────────────────
+
+export function chunkByArticle(pages: PageText[]): ChunkDraft[] {
+  // 1. One string for the whole document + where each page starts in it
+  const { fullText, pageAt, lastNonSpace } = joinPages(pages);
+
   // 2. Article boundaries; text before the first heading is skipped
   const headings = selectHeadings(fullText);
   if (headings.length === 0) return [];

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Source } from '../interfaces/types';
+import { Lang, Source } from '../interfaces/types';
 
 export const LlmAnswer = z.object({
   found: z.boolean().describe('false when the sources do not contain the answer'),
@@ -20,8 +20,8 @@ const renderSources = (sources: Source[]) =>
   
 const norm = (s: string) => s.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
   
-export const userPrompt = (question: string, sources: Source[]) =>
-    `${renderSources(sources)}\n\n<question>${question}</question>`;
+export const userPrompt = (question: string, sources: Source[], language: Lang) =>
+    `${renderSources(sources)}\n\n<question>${question}</question>\n\n<responseLanguage>${language}</responseLanguage>`;
 
 /** Shorter quotes ("", "de", "le commerçant") match almost any article, so they prove nothing. */
 export const MIN_QUOTE_CHARS = 20;

@@ -5,6 +5,7 @@ import formAutoContent from 'form-auto-content';
 import { buildApp } from '../../../src/app';
 import { env } from '../../../src/config/env';
 import { getDocuments, ingestDocument } from '../../../src/services/documents.service';
+import { findActiveKey, generateApiKey } from '../../../src/services/api-keys.service';
 
 // Route tests never touch Postgres, the PDF parser or Voyage: the service is mocked.
 // Everything else in the module stays real (importOriginal).
@@ -14,7 +15,15 @@ vi.mock('../../../src/services/documents.service', async (importOriginal) => ({
   getDocuments: vi.fn(),
 }));
 
+// Database keys: the lookup is mocked, everything else in requireRole is real
+vi.mock('../../../src/services/api-keys.service', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../../src/services/api-keys.service')>()),
+  findActiveKey: vi.fn(),
+}));
+
 const URL = '/api/documents/upload';
+// A real uuid: the response schema checks it, as Postgres would only ever return one
+const DOC_ID = 'c9725d5d-0bc8-46aa-b8f8-cfa870d6425c';
 const fakePdf = Buffer.from('%PDF-1.4\n% test fixture\n'); // passes the "%PDF-" magic-byte check
 const file = (value: Buffer, filename = 'act.pdf', contentType = 'application/pdf') => ({
   value,
@@ -56,6 +65,18 @@ describe('POST /api/documents/upload', () => {
     expect(ingestDocument).not.toHaveBeenCalled();
   });
 
+  // Proves the order, not just the status: a body the multipart parser would reject still gets 401,
+  // so the key is checked before a single byte of the body is parsed or buffered
+  it('checks the API key before parsing the multipart body', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: URL,
+      payload: 'this is not multipart',
+      headers: { 'content-type': 'multipart/form-data; boundary=----nope' },
+    });
+    expect(res.statusCode).toBe(401);
+  });
+
   it('returns 401 with a wrong API key', async () => {
     const res = await upload(validFields(), 'not-the-admin-key-not-the-admin-key');
     expect(res.statusCode).toBe(401);
@@ -67,6 +88,25 @@ describe('POST /api/documents/upload', () => {
   //   expect(res.json().errors.file).toBeDefined();
   //   expect(ingestDocument).not.toHaveBeenCalled();
   // });
+
+  // Authorization: the key is valid, its role is too low. Statutes are admin-only.
+  it.each(['reviewer', 'contributor'] as const)('returns 403 for a valid %s key', async (role) => {
+    vi.mocked(findActiveKey).mockResolvedValueOnce({ id: DOC_ID, role, label: `${role}-1` });
+    const res = await upload(validFields(), generateApiKey().plaintext);
+    expect(res.statusCode).toBe(403);
+    expect(res.json()).toMatchObject({ status: 'failed', message: 'This action requires the admin role' });
+    expect(ingestDocument).not.toHaveBeenCalled();
+  });
+
+  it('accepts an admin key from the database, not only the legacy ADMIN_API_KEY', async () => {
+    vi.mocked(findActiveKey).mockResolvedValueOnce({ id: DOC_ID, role: 'admin', label: 'admin-1' });
+    vi.mocked(ingestDocument).mockResolvedValueOnce({ documentId: DOC_ID, chunkCount: 1 });
+    vi.mocked(getDocuments).mockResolvedValueOnce({
+      id: DOC_ID, kind: 'statute', title: 'AUDCG 2010', language: 'fr', sourceUrl: null, pageCount: 66, createdAt: new Date(),
+    });
+    const res = await upload(validFields(), generateApiKey().plaintext);
+    expect(res.statusCode).toBe(201);
+  });
 
   it('returns 422 when the file is not a real PDF', async () => {
     const res = await upload({ ...validFields(), file: file(Buffer.from('hello'), 'fake.pdf') });
@@ -87,9 +127,9 @@ describe('POST /api/documents/upload', () => {
   });
 
   it('returns 201 with the stored document', async () => {
-    vi.mocked(ingestDocument).mockResolvedValueOnce({ documentId: 'doc-1', chunkCount: 42 });
+    vi.mocked(ingestDocument).mockResolvedValueOnce({ documentId: DOC_ID, chunkCount: 42 });
     vi.mocked(getDocuments).mockResolvedValueOnce({
-      id: 'doc-1',
+      id: DOC_ID,
       kind: 'statute',
       title: 'AUDCG 2010',
       language: 'fr',
@@ -104,7 +144,7 @@ describe('POST /api/documents/upload', () => {
     expect(res.json()).toEqual({
       status: 'success',
       data: {
-        id: 'doc-1',
+        id: DOC_ID,
         kind: 'statute',
         title: 'AUDCG 2010',
         language: 'fr',

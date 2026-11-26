@@ -78,6 +78,20 @@
       "when": 1795544012025,
       "tag": "0010_chunks_document_fk",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795721059671,
+      "tag": "0011_decisions_api_keys",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795721069849,
+      "tag": "0012_lexeme_stats_searchable",
+      "breakpoints": true
     }
   ]
 }

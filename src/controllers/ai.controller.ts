@@ -1,12 +1,13 @@
 import { FastifyReply, FastifyRequest } from "fastify";
-import { validate } from "../utils/validate";
+import { z } from "zod";
 import { searchQuestionSchema } from "../utils/schemas";
-import { failedResponse, successResponse } from "../utils/utils";
+import { successResponse } from "../utils/utils";
 import { askQuestion } from "../services/ask.service";
 
-export const ask = async (req: FastifyRequest, reply: FastifyReply) => {
-    const v = validate(searchQuestionSchema, req.body);
-    if (!v.ok) return failedResponse(reply, 422, 'Validation failed', v.errors);
-    const data = await askQuestion(v.data.question);
+// The route's schema has already validated the body (422 otherwise), so it arrives parsed and typed
+export type AskRoute = { Body: z.infer<typeof searchQuestionSchema> };
+
+export const ask = async (req: FastifyRequest<AskRoute>, reply: FastifyReply) => {
+    const data = await askQuestion(req.body.question);
     return successResponse(reply, 200, data);
 }

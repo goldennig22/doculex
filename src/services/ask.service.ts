@@ -29,7 +29,7 @@ const MODELS = [
 
 async function generateWithFallback(prompt: string) {
   let lastError: unknown;
-  AbortSignal.timeout(20_000)
+  // AbortSignal.timeout(20_000)
   for (const m of MODELS) {
     try {
       const res = await generateText({
@@ -38,7 +38,7 @@ async function generateWithFallback(prompt: string) {
         prompt,
         output: Output.object({ schema: LlmAnswer }),
         maxRetries: 1,
-        // abortSignal: AbortSignal.timeout(20_000),
+        abortSignal: AbortSignal.timeout(10_000),
       });
       return { output: res.output, usage: res.usage, modelName: m.name };
     } catch (err) {
@@ -51,7 +51,10 @@ async function generateWithFallback(prompt: string) {
 
 /** Joins every part of each article, in the order the search ranked the articles. */
 async function buildSources(top: SearchResult[]): Promise<Source[]> {
-  const parts = await getArticleParts(top.map((t) => ({ documentId: t.documentId, articleRef: t.articleRef })));
+  const parts = await getArticleParts(
+    top.map((t) => ({ documentId: t.documentId, articleRef: t.articleRef })),
+    { kinds: ['statute'] },
+  );
   return top.map((t, i) => {
     const own = parts.filter((p) => p.documentId === t.documentId && p.articleRef === t.articleRef);
     return {
@@ -76,7 +79,8 @@ export async function askQuestion(question: string): Promise<AskResponse> {
 export async function answerQuestion(question: string): Promise<AskResult> {
   const started = performance.now();
   const language = detectLanguage(question);
-  const hits = await searchByVector(question, 20);
+  // Statutes only until an eval with published decisions says otherwise (see README, v2)
+  const hits = await searchByVector(question, 20, { kinds: ['statute'] });
   const topSimilarity = hits[0]?.similarity ?? 0;
   const notFound: AskResponse = { found: false, answer: null, citations: [], confidence: null, language };
 
@@ -111,7 +115,7 @@ export async function answerQuestion(question: string): Promise<AskResult> {
 
   let generated: Awaited<ReturnType<typeof generateWithFallback>>;
   try {
-    generated = await generateWithFallback(userPrompt(question, sources));
+    generated = await generateWithFallback(userPrompt(question, sources, language));
   } catch (err) {
     await finish({ found: false, stoppedAt: 'error' }, notFound, refs);
     throw err; // the error handler turns it into a clean 500

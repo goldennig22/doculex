@@ -98,6 +98,28 @@ describe('error handler', () => {
     }
   });
 
+  it('returns 422 with the errors by field when the body fails its schema', async () => {
+    const res = await ask({ question: 'a' });
+
+    expect(res.statusCode).toBe(422);
+    expect(res.json()).toEqual({
+      status: 'failed',
+      message: 'Validation failed',
+      errors: { question: [expect.any(String)] },
+      requestId: expect.any(String),
+    });
+  });
+
+  it('returns a 500, not a 422, when our own response does not match its schema', async () => {
+    // A ZodError raised while checking the response is a server bug: it must never look like the client's fault
+    vi.mocked(askQuestion).mockResolvedValueOnce({ ...notFound, confidence: 'certain' } as never);
+
+    const res = await ask({ question: Q1 });
+
+    expect(res.statusCode).toBe(500);
+    expect(res.json()).toEqual({ status: 'failed', message: 'Internal server error', requestId: expect.any(String) });
+  });
+
   it("keeps Fastify's own 4xx message, in the same shape", async () => {
     const res = await app.inject({
       method: 'POST', url: '/api/ai/ask', headers: { 'content-type': 'application/json' }, payload: '{"question": ',

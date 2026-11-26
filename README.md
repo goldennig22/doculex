@@ -2,25 +2,39 @@
 
 **Bilingual legal Q&A API for OHADA business law: ask in French or English, get the exact article it comes from.**
 
-<!-- Replace once available: [Live demo](https://…) · ![pipeline](https://gitlab.com/<user>/doculex/badges/main/pipeline.svg) -->
+[![pipeline](https://gitlab.com/wambahermann084/doculex/badges/main/pipeline.svg)](https://gitlab.com/wambahermann084/doculex/-/pipelines)
+<!-- TODO: placeholder domain, replace when the real one is live -->
+**[Live demo](https://doculex-api.fleuva.com)** · **[API docs (Swagger)](https://doculex-api.fleuva.com/docs)**
 
-DocuLex ingests OHADA Uniform Acts (PDF), splits them **article by article**, and makes them searchable in French and English. Version 1 is a retrieval API with cited answers. Version 2 adds a database of Cameroonian and OHADA court decisions linked to the articles they apply, because law students in Cameroon have no free place to find case law.
+<!-- TODO: 30-second demo GIF: one French question, one English question answered from a French article, one "not found"
+![DocuLex demo](docs/demo.gif) -->
 
-Built with Node.js 22, TypeScript, Fastify, Postgres + pgvector, Drizzle ORM and Vitest, with GitLab CI.
+[OHADA](https://www.ohada.org) is the business law shared by 17 African countries, written as "Uniform Acts". DocuLex ingests those Acts (PDF), splits them **article by article**, and answers questions in French or English with citations to the exact article and pages. Every quote is checked word for word against the source, and when the answer isn't in the Acts, it says so instead of guessing.
+
+| Measured on 42 hand-written questions | |
+| --- | --- |
+| Right article in the top 5 search results | **30 / 32** |
+| Answered with a verified quote from the right article | **30 / 32** |
+| Out-of-scope questions refused | **10 / 10** |
+| Mean latency · cost per question | **2.9 s · $0.0004** |
+
+How these were measured, and what they don't check, is in [Results](#results).
+
+**Highlights**
+
+- **Article-level chunking** of legal PDFs: a pure, unit-tested chunker that skips tables of contents and cross-references and cleans PDF artefacts.
+- **Answers that can't invent their sources:** the model cites a source *number*, the server maps it to the article, and any quote not found verbatim in that article is dropped. Two refusal layers return `found: false` instead of an answer.
+- **Decisions backed by measurement:** hybrid search (keywords + vectors) was built, measured, and lost to vector-only search, so it ships switched off.
+
+Built with Node.js 22, TypeScript, Fastify, Postgres + pgvector, Drizzle ORM, the Vercel AI SDK (Claude, with OpenAI and Gemini as fallbacks) and Vitest. CI runs on [GitLab](https://gitlab.com/wambahermann084/doculex); the GitHub repository is a mirror.
+
+**Why:** law students in Cameroon have no free place to read OHADA law next to the court decisions that apply it. Version 2 adds those decisions, linked to the articles they cite (see [Next steps](#next-steps)).
 
 ---
 
 ## Status
 
-| Weekend | Goal | Status |
-| --- | --- | --- |
-| 1 | Skeleton: Fastify, Docker Postgres, migrations, CI | Done |
-| 2 | Ingest: PDF upload, page extraction, article chunker | Done |
-| 3 | Embeddings and vector search, first evaluation | Done |
-| 4 | Hybrid search (full-text + vectors, RRF), measured against vector-only | Done: **vector-only kept** (see Results) |
-| 5 | `/ask`: cited answers with Claude, verified quotes, two-layer `found: false`, model fallback, rate limit, query log, answer-level eval | Done |
-| 6 | Production deploy to VPS from GitLab CI | Planned |
-| 7 | Final evaluation, demo page, write-up | Planned |
+**v1 is deployed:** ingest, vector search, cited answers, CI to a VPS. A one-page demo at `/` and Swagger docs at `/docs`. **Next:** court decisions linked to articles (v2). Details in [Next steps](#next-steps).
 
 ---
 
@@ -99,22 +113,23 @@ On the two Acts used so far: **307 articles found in the AUDCG 2010 (French)**, 
 
 ## Results
 
-Measured with `src/scripts/eval-retrieval.ts` on a hand-written set of bilingual questions (`eval/questions.json`). The expected articles were checked against the PDFs. **Hit@5** = the expected article is among the first 5 results.
+All numbers below come from one run on 25 Nov 2026, on a hand-written question set (`eval/questions.json`):
+
+- **32 in-document questions** (17 French, 15 English; 15 asked in the other language from the Act that answers them). Every expected article was checked against the text stored in the database.
+- **10 out-of-document questions** (5 French, 5 English). Two are *near misses*: they ask about OHADA Acts that are not ingested (securities, insolvency), so they sound like the corpus but aren't in it.
+
+**Hit@5** = an expected article is among the first 5 search results.
 
 ### Vector-only vs hybrid search
 
-23 in-document questions: 11 French, 12 English, about half asked in a different language from their document.
-
 | Mode | Hit@5 |
 | --- | --- |
-| **Vector only (pgvector, cosine)** | **20 / 23** |
-| Hybrid, keyword weight 0.25, same language | 19 / 23 |
-| Hybrid, keyword weight 0.5, same language | 18 / 23 |
-| Hybrid, keyword weight 0.25, both languages | 18 / 23 |
-| Hybrid, keyword weight 1, same language | 17 / 23 |
-| Hybrid, keyword weight 1, both languages | 16 / 23 |
+| **Vector only (pgvector, cosine)** | **30 / 32** |
+| Hybrid, keyword weight 0.5, both languages | 26 / 32 |
 
-*Measured on 5 Nov 2026. Two of the vector "misses" (#23, #25) were labelling errors in the question set, where the correct article was returned at rank 1. Both are now fixed in `questions.json`, and the next run will replace these numbers.*
+An earlier, wider sweep (5 Nov 2026, the first 23 questions) found the same order: vector-only first, and every hybrid setting (keyword weights 0.25 to 1, same-language or both) 1 to 4 questions behind.
+
+The two vector misses: #17 asks in English about a French article and is the furthest question from any article (top similarity 0.620). #38 asks whether a private limited company can have a single member; search returned Art. 5 (*any* company may be formed by a single person) instead of the expected Art. 309, the SARL-specific rule.
 
 **Decision:** v1 uses vector-only retrieval. Hybrid search stays in the code (`hybridSearch`), with its tests, behind a flag, so the comparison can be rerun.
 
@@ -129,14 +144,14 @@ Measured with `src/scripts/eval-retrieval.ts` on a hand-written set of bilingual
 
 | | Top cosine similarity |
 | --- | --- |
-| Lowest, in-document hit | 0.663 |
-| Highest, out-of-document | 0.652 |
+| Lowest, in-document | 0.620 (#17) |
+| Highest, out-of-document | 0.675 (#41, a near miss) |
 
-The two ranges almost touch, so a similarity cutoff alone can't separate answerable from unanswerable questions. Hence two layers: a low cutoff (0.60) that rejects clear noise without calling the LLM, then the LLM itself returns `found: false` when the retrieved articles don't contain the answer. The question set has 8 out-of-document questions to measure both layers.
+The two ranges **overlap**: a question about an Act that isn't ingested can sit closer to the corpus than a real question asked across languages. No similarity cutoff can separate them. Hence two layers: a low cutoff (0.60) that rejects clear noise without calling the LLM, then the LLM itself returns `found: false` when the retrieved articles don't contain the answer.
 
 ### Answer quality (`/ask`)
 
-Measured with `src/scripts/eval-answers.ts`, which runs the real pipeline on the same 31 questions. **No second LLM grades the answers.** The grade uses only facts the pipeline already checked:
+Measured with `src/scripts/eval-answers.ts`, which runs the real pipeline on the same 42 questions. **No second LLM grades the answers.** The grade uses only facts the pipeline already checked:
 
 | Question | Verdict | Rule |
 | --- | --- | --- |
@@ -151,11 +166,16 @@ What this does not check: whether the sentence itself is right. The script print
 
 | | Result |
 | --- | --- |
-| In-document answered with an expected article | *to be measured* / 23 |
-| Out-of-document refused | *to be measured* / 8 (threshold · llm) |
-| Answers in the question's language | *to be measured* |
-| Latency (p50 / p95) | *to be measured* |
-| Cost per LLM call | *to be measured* (prices in `src/config/prices.ts` are placeholders until production) |
+| In-document answered with an expected article | **30 / 32** |
+| In-document wrongly refused | 1 (#17, by the LLM: the expected article was not in the sources) |
+| In-document, other article cited | 1 (#38: cited Art. 5, see the vector misses above; the answer is true but not the expected article) |
+| Out-of-document refused | **10 / 10**: 3 by the threshold, 7 by the LLM, 0 answered |
+| Answers in the question's language | **30 / 31** (#37 was answered in another language; on a re-run it was answered in English, so the model is not fully consistent) |
+| Latency | mean 2.9 s · p50 2.3 s · p95 6.2 s |
+| Cost | $0.018 for the 42 questions: $0.00042 per question, $0.00046 per LLM call |
+| Model that answered | Claude Haiku 5.5, 39 of 39 LLM calls (no fallback used) |
+
+How to read latency and cost: the script calls the pipeline directly from a development machine (no HTTP, no nginx), so production adds network time. Cost is LLM tokens only, at the price in `src/config/prices.ts`; the question's embedding is not counted. Questions stopped by the threshold cost no LLM call.
 
 ---
 
@@ -170,8 +190,11 @@ What this does not check: whether the sentence itself is right. The script print
 | **1536-dimension embeddings** | pgvector's HNSW index supports at most 2000 dimensions for `vector`. |
 | **`ORDER BY distance`, not `similarity DESC`** | Postgres only uses the HNSW index when sorting by the distance operator itself. |
 | **Vector-only in v1** | Measured: every hybrid setting scored lower (see Results). |
-| **Admin API key compared with `timingSafeEqual`** | Avoids leaking the key through response timing. |
+| **API keys stored as SHA-256, with roles (admin > reviewer > contributor)** | A database leak gives no usable key. SHA-256, not bcrypt: a 256-bit random key cannot be guessed, and a deterministic hash can be looked up by index. The key is shown once by `npm run keys:create`. 401 = unknown or revoked key, 403 = valid key, role too low. The legacy `ADMIN_API_KEY` (compared with `timingSafeEqual`) still works on the statute routes until it is retired. |
+| **Decisions chunked by section, one chunk per ground of appeal (moyen)** | A judgment has no "Article N". A size-based cut can separate a party's grievance from the court's answer, and the LLM would then present the losing argument as the holding. The last "PAR CES MOTIFS" is the dispositif (earlier ones quote the lower court). The caption (party names) and costs are not stored. |
+| **Unpublished decisions are filtered inside every SQL query** | One predicate (`searchableDocuments`) used by vector search, keyword search, `getArticleParts`, the public document routes and `lexeme_stats`. Filtering after the search would still let a draft take a top-5 place and set `topSimilarity`. A DB test gives a draft similarity 1.0 and checks no search returns it. `/ask` stays statutes-only until an eval with published decisions. |
 | **Upload limits in multipart, PDF checked by magic bytes** | The 20 MB limit stops reading before buffering; the client's `mimetype` can be faked, `%PDF-` cannot. |
+| **Zod schemas on the routes, converted for OpenAPI (no `zod-to-json-schema`, no type-provider package)** | One definition validates the request, checks the response and generates the docs, so they can't drift apart. Zod 4 converts to JSON Schema itself; the glue is ~60 lines (`src/utils/zod-fastify.ts`). A response that breaks its schema is a 500 (our bug), never a 422. |
 | **LLM always mocked in tests** | Tests stay fast, free and deterministic; quality is measured separately by the eval scripts. |
 | **Two refusal layers** | The threshold is free and stops clear noise; the LLM catches near misses the threshold can't separate (see the relevance threshold above). |
 | **Citations by source number + quote verification** | The model cites `source: 1`, never an article number it could invent; the server maps it to document, article and pages, and drops any quote not found in that source. |
@@ -193,6 +216,8 @@ What this does not check: whether the sentence itself is right. The script print
 - **A PDF without a Unicode character map** produced NUL characters that Postgres rejects in `text` columns.
 - **The first migration was empty.** `0000_enable_pgvector.sql` never contained `CREATE EXTENSION vector`; the dev database had it from a manual step. The first fresh database (for tests) failed at `type "vector" does not exist`, and so would the VPS. CI now migrates a fresh database on every push.
 - **The integration tests never ran in CI.** The README said they did, but `RUN_DB_TESTS` was never set, and a moved test file still mocked a wrong path. Nothing failed, because nothing ran.
+- **The admin key was checked after the upload was read.** The key check ran in `preHandler`, but `@fastify/multipart` parses the body earlier, in `preValidation`, so anyone could make the server buffer a 20 MB upload before getting a 401. A malformed body even returned a 500. The test called "401 before reading the body" never checked the second half of its name; a new test sends a broken multipart body without a key and expects 401. The check now runs in `onRequest`.
+- **English questions answered in French.** The answer eval caught 10 of them, including questions about the English Act. The prompt asked for "the language of the question", but the server, which already detects it, never said which one it was. Passing the detected language in the prompt took the eval from 21 / 31 to 30 / 31 answers in the right language.
 - **An empty quote passed verification:** `"any text".includes("")` is `true`. Caught while writing the unit tests, before any real traffic.
 - **Vitest on Windows** loaded itself twice when the project was opened as `c:\` instead of `C:\`, and every suite failed with `Cannot read properties of undefined (reading 'config')`.
 
@@ -200,14 +225,16 @@ What this does not check: whether the sentence itself is right. The script print
 
 ## API
 
-All routes are under `/api`. Responses use one shape: `{ status: "success", data }` or `{ status: "failed", message, errors?, requestId? }`. Every error raised outside a controller (invalid JSON, rate limit, server errors) carries a `requestId` that matches the server log; a 5xx only ever says `Internal server error`.
+Interactive docs with request and response examples (including `found: false`) are at **`/docs`**, generated from the same Zod schemas that validate requests and check responses. A small demo page is served at `/`.
+
+All routes are under `/api`. Responses use one shape: `{ status: "success", data }` or `{ status: "failed", message, errors?, requestId? }`. An invalid request gets a `422` with `errors` by field. Every error raised outside a controller (validation, invalid JSON, rate limit, server errors) carries a `requestId` that matches the server log; a 5xx only ever says `Internal server error`.
 
 | Method + path | Auth | Description |
 | --- | --- | --- |
 | `GET /api/health` | None | Database (pgvector installed) and LLM provider status; `503` if the database is down, `degraded` if only the LLM is |
 | `POST /api/documents/upload` | `x-api-key` | Multipart: `file` (PDF, max 20 MB), `title`, `language` (`fr`\|`en`), `sourceUrl?` → stored document |
 | `GET /api/documents` | None | List documents |
-| `GET /api/documents/:documentId/show` | None | One document |
+| `GET /api/documents/:documentId/show` | None | One document; `422` if the id isn't a uuid, `404` if no such document |
 | `DELETE /api/documents/:documentId/delete` | `x-api-key` | Delete a document and its chunks; `422` if the id isn't a uuid, `404` if no such document |
 | `POST /api/ai/ask` | None | `{ question }` (3–1000 characters) → `{ found, answer, citations[], confidence, language }`; `422` invalid, `429` over 10 requests / minute / IP |
 
@@ -246,7 +273,7 @@ curl -X POST http://localhost:3000/api/documents/upload \
 | Variable | Required | Description |
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | e.g. `postgres://doculex:doculex@localhost:5433/doculex` |
-| `ADMIN_API_KEY` | Yes | At least 32 characters; protects write endpoints |
+| `ADMIN_API_KEY` | Yes | At least 32 characters. Legacy admin key for the statute routes, until it is replaced by keys from `npm run keys:create -- --role admin --label "…"` |
 | `EMBEDDING_MODEL` | Yes | Embedding model id |
 | `GEMINI_API_KEY` | Yes | Embeddings, and the last fallback model |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | Yes | Primary and second answer models |
@@ -311,7 +338,7 @@ src/
   controllers/   validate input, call services, shape responses
   services/      chunker, documents (ingest), embeddings, search, ask (pipeline + fallback),
                  answer (prompt, schema, quote verification), queries (log), health
-  middleware/    requireAdminKey
+  middleware/    requireRole (API keys with roles)
   config/        env (Zod-validated), prices per model
   db/            Drizzle schema and client
   scripts/       eval-retrieval, eval-answers (+ lib/answer-grading), embed-missing
@@ -328,10 +355,12 @@ test/            Vitest suites: api/ (routes), services/, scripts/
 **Phase 1 (v1, by end of November)**
 
 - ~~`/ask` with verified citations, two-layer `found: false`, model fallback, rate limit, query log, error handler, cascade delete~~ (Weekend 5, done)
-- Run the answer eval and fill in the Answer quality table; tune `MIN_SIMILARITY` with it
-- One overall deadline for the fallback chain: today each of the 3 models gets 20 s, so the worst case is about a minute
-- Real prices in `src/config/prices.ts` before production
-- Deploy to a VPS from GitLab CI: Docker image per commit, nginx + HTTPS in front (see `deploy/README.md`)
+- ~~Run the answer eval and fill in the Answer quality table~~ (done, see Results)
+- ~~Pass the question's language to the model explicitly~~ (done: 21 / 31 → 30 / 31 answers in the right language)
+- One overall deadline for the fallback chain: today each of the 3 models gets 10 s, so the worst case is about 30 s
+- Real prices for the two fallback models in `src/config/prices.ts` (the Claude price is real; the eval never reached a fallback)
+- ~~Deploy to a VPS from GitLab CI: Docker image per commit, nginx in front (see `deploy/README.md`)~~ (done); HTTPS once the domain is set up
+- ~~Swagger docs at `/docs`, generated from the Zod schemas; a one-page demo at `/`~~ (done)
 - Query translation for cross-language keyword search, then re-measure hybrid
 
 **Phase 2 (v2, December–January)**
