@@ -20,7 +20,7 @@ type Q = {
 const { values } = parseArgs({
   args: process.argv.slice(2),
   options: {
-    mode: { type: 'string', default: 'hybrid' },
+    mode: { type: 'string', default: 'vector' },
     'kw-weight': { type: 'string', default: '0.5' },
     'same-lang': { type: 'boolean', default: false },
     k: { type: 'string', default: '5' },

@@ -33,7 +33,7 @@
       "category": "in_document",
       "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
       "question": "Quel est le délai dans lequel une personne physique ayant la qualité de commerçant doit requérir son immatriculation au RCCM après le début de son exploitation ?",
-      "expected_answer_summary": "Toute personne physique ayant la qualité de commerçant doit, dans le premier mois d'exploitation de son commerce, requérir son immatriculation au Registre du Commerce et du Crédit Mobilier (Article 25).",
+      "expected_answer_summary": "Toute personne physique ayant la qualité de commerçant doit, dans le premier mois d'exploitation de son commerce, requérir son immatriculation au Registre du Commerce et du Crédit Mobilier (Article 44).",
       "expected_articles": [
         "44"
       ],
@@ -57,7 +57,7 @@
       "category": "in_document",
       "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
       "question": "Quelles sont les mentions obligatoires minimales que doit contenir la demande d'immatriculation d'une personne physique au RCCM ?",
-      "expected_answer_summary": "La demande d'immatriculation doit notamment indiquer les nom, prénoms et domicile personnel, les date et lieu de naissance, la nationalité, les activités exercées, ainsi que l'adresse du principal établissement (Article 25).",
+      "expected_answer_summary": "La demande d'immatriculation doit notamment indiquer les nom, prénoms et domicile personnel, les date et lieu de naissance, la nationalité, les activités exercées, ainsi que l'adresse du principal établissement (Article 44).",
       "expected_articles": [
         "44"
       ],
@@ -188,6 +188,8 @@
       "category": "in_document",
       "question": "Dans quel délai la déclaration sur l'honneur doit-elle être complétée par un extrait de casier judiciaire ?",
       "expected_articles": [
+        "45",
+        "47",
         "63"
       ],
       "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
@@ -198,6 +200,8 @@
       "category": "in_document",
       "question": "Within how many days must the sworn statement be completed by a criminal record extract?",
       "expected_articles": [
+        "45",
+        "47",
         "63"
       ],
       "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
@@ -343,6 +347,132 @@
       "expected_answer_summary": "Not covered by the uploaded OHADA Uniform Acts (general commercial law, commercial companies and EIG).",
       "expected_articles": [],
       "expected_title": "none"
+    },
+    {
+      "id": 32,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "Comment l'Acte uniforme définit-il le fonds de commerce ?",
+      "expected_answer_summary": "Le fonds de commerce est constitué par un ensemble de moyens qui permettent au commerçant d'attirer et de conserver une clientèle (Art. 135).",
+      "expected_articles": [
+        "135"
+      ],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 33,
+      "language": "en",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "How long must a tenant have operated the business before acquiring the right to renew a commercial lease?",
+      "expected_answer_summary": "At least two years, operating the activity provided for in the lease (Art. 123).",
+      "expected_articles": [
+        "123"
+      ],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 34,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "Dans quel délai l'acheteur doit-il dénoncer au vendeur un défaut de conformité apparent le jour de la livraison ?",
+      "expected_answer_summary": "Dans le mois qui suit la livraison, sous peine de déchéance (Art. 258).",
+      "expected_articles": [
+        "258"
+      ],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 35,
+      "language": "en",
+      "category": "in_document",
+      "source_document": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "question": "What book must an entreprenant keep day by day for their activity?",
+      "expected_answer_summary": "A book recording chronologically the origin and amount of resources (cash separated from other payments) and the destination and amount of uses (Art. 31).",
+      "expected_articles": [
+        "31"
+      ],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra"
+    },
+    {
+      "id": 36,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS",
+      "question": "Quel est le capital social minimum d'une société anonyme qui ne fait pas appel public à l'épargne ?",
+      "expected_answer_summary": "10 000 000 FCFA, divisé en actions d’une valeur nominale d’au moins 10 000 FCFA (Art. 387).",
+      "expected_articles": [
+        "387"
+      ],
+      "expected_title": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS"
+    },
+    {
+      "id": 37,
+      "language": "en",
+      "category": "in_document",
+      "source_document": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS",
+      "question": "How many members can the board of directors of a public limited company have?",
+      "expected_answer_summary": "Not less than three and not more than twelve (Art. 416).",
+      "expected_articles": [
+        "416"
+      ],
+      "expected_title": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS"
+    },
+    {
+      "id": 38,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS",
+      "question": "Une SARL peut-elle être constituée par une seule personne ?",
+      "expected_answer_summary": "Oui : elle peut être constituée par une personne physique ou morale, ou par plusieurs (Art. 309).",
+      "expected_articles": [
+        "309"
+      ],
+      "expected_title": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS"
+    },
+    {
+      "id": 39,
+      "language": "en",
+      "category": "in_document",
+      "source_document": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS",
+      "question": "What events bring a commercial company to an end?",
+      "expected_answer_summary": "Expiry of its term, realization or extinction of its object, annulment of the Articles, decision of the members, early dissolution by the court, among others (Art. 200).",
+      "expected_articles": [
+        "200"
+      ],
+      "expected_title": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS"
+    },
+    {
+      "id": 40,
+      "language": "fr",
+      "category": "in_document",
+      "source_document": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS",
+      "question": "Qu'est-ce qu'un groupement d'intérêt économique et quel est son objet ?",
+      "expected_answer_summary": "Un groupement dont l'objet exclusif est de mettre en œuvre, pour une durée déterminée, les moyens propres à faciliter ou développer l'activité économique de ses membres (Art. 869).",
+      "expected_articles": [
+        "869"
+      ],
+      "expected_title": "UNIFORM ACT RELATING TO COMMERCIAL COMPANIES AND ECONOMIC INTEREST GROUPS"
+    },
+    {
+      "id": 41,
+      "language": "fr",
+      "category": "out_of_document",
+      "source_document": null,
+      "question": "Quelles sont les conditions de validité d'un cautionnement selon l'Acte uniforme portant organisation des sûretés ?",
+      "expected_answer_summary": "Not covered by the uploaded OHADA Uniform Acts (general commercial law, commercial companies and EIG). Near miss: another OHADA Uniform Act, not ingested.",
+      "expected_articles": []
+    },
+    {
+      "id": 42,
+      "language": "en",
+      "category": "out_of_document",
+      "source_document": null,
+      "question": "What are the conditions for opening a preventive settlement procedure under the OHADA Uniform Act on insolvency proceedings?",
+      "expected_answer_summary": "Not covered by the uploaded OHADA Uniform Acts (general commercial law, commercial companies and EIG). Near miss: another OHADA Uniform Act, not ingested.",
+      "expected_articles": []
     }
   ]
 }
