@@ -34,7 +34,7 @@ const stored = {
   id: '8d1f0c2e-4b7a-4e19-9c3d-5a6b7c8d9e0f', documentId: '2a9e7c41-6f3b-4d8a-b1c5-0e2f4a6b8c9d',
   title: 'CCJA, 1re ch., arrêt n° 000/2019', language: 'fr' as const, status: 'draft' as const,
   court: null, country: null, chamber: null, caseNumber: null, decisionDate: null,
-  sourceName: 'Ohadata', sourceUrl: null, chunkCount: 5, createdAt: new Date('2026-11-26T09:12:00Z'),
+  sourceName: 'Ohadata', sourceUrl: null, extractionStatus: 'pending' as const, chunkCount: 5, createdAt: new Date('2026-11-26T09:12:00Z'),
 };
 
 function post(body: Record<string, unknown>, apiKey: string | null = CONTRIBUTOR_KEY) {

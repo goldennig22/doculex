@@ -74,6 +74,8 @@ export const createDecisionSchema = z.object({
 });
 
 export const decisionStatusSchema = z.enum(['draft', 'in_review', 'published', 'rejected']);
+export const extractionStatusSchema = z.enum(['pending', 'done', 'needs_manual_entry'])
+    .describe('AI metadata extraction: pending (queued), done, or needs_manual_entry (a person types the fields)');
 
 export const decisionSchema = z.object({
     id: z.uuid(),
@@ -88,6 +90,7 @@ export const decisionSchema = z.object({
     decisionDate: z.string().nullable(),
     sourceName: z.string(),
     sourceUrl: z.string().nullable(),
+    extractionStatus: extractionStatusSchema,
     chunkCount: z.number().int(),
     createdAt: z.date(),
 })

@@ -18,7 +18,7 @@ const renderSources = (sources: Source[]) =>
     `<source n="${s.n}" document="${s.documentTitle}" article="${s.articleRef}" pages="${s.pageStart}-${s.pageEnd}">\n${s.sectionPath ?? ''}\n${s.content}\n</source>`,
   ).join('\n')}\n</sources>`;
   
-const norm = (s: string) => s.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
+export const norm = (s: string) => s.toLowerCase().replace(/[’']/g, "'").replace(/\s+/g, ' ').trim();
   
 export const userPrompt = (question: string, sources: Source[], language: Lang) =>
     `${renderSources(sources)}\n\n<question>${question}</question>\n\n<responseLanguage>${language}</responseLanguage>`;

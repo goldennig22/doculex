@@ -15,6 +15,8 @@ vi.mock('../../src/services/embeddings.service', () => ({
   EMBEDDING_MODEL: 'test-model',
   DIMENSIONS: 1536,
 }));
+// ingestDecision enqueues the extraction job in its transaction; pg-boss's schema isn't in the test database
+vi.mock('../../src/jobs/queue', () => ({ enqueueExtraction: vi.fn() }));
 
 const DIMS = 1536;
 /** Two different axes have similarity 0; the same axis has similarity 1. */
@@ -104,7 +106,8 @@ describe.skipIf(!process.env.RUN_DB_TESTS)('unpublished decisions are invisible 
 
   it('the database refuses to publish an unreviewed or incomplete decision', async () => {
     const publish = (values: Partial<typeof decisions.$inferInsert>) =>
-      db.update(decisions).set({ status: 'published', publishedAt: new Date(), ...values }).where(eq(decisions.id, decisionId));
+      // captionText: null, as a real publish does: each case must fail for its own reason, not the caption
+      db.update(decisions).set({ status: 'published', publishedAt: new Date(), captionText: null, ...values }).where(eq(decisions.id, decisionId));
 
     await expect(publish({ court: 'CCJA', decisionDate: '2019-02-28' })).rejects.toThrow(); // no reviewer
     await expect(publish({ reviewedBy: reviewerId })).rejects.toThrow(); // no court, no date
@@ -113,7 +116,7 @@ describe.skipIf(!process.env.RUN_DB_TESTS)('unpublished decisions are invisible 
 
   it('once published, it is searchable, but /ask (statutes only) still never sees it', async () => {
     await db.update(decisions)
-      .set({ status: 'published', publishedAt: new Date(), reviewedBy: reviewerId, court: 'CCJA', decisionDate: '2019-02-28' })
+      .set({ status: 'published', publishedAt: new Date(), reviewedBy: reviewerId, court: 'CCJA', decisionDate: '2019-02-28', captionText: null })
       .where(eq(decisions.id, decisionId));
 
     vi.mocked(embedQuery).mockResolvedValue(axis(DECISION_AXIS));

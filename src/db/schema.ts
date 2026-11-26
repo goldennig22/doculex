@@ -76,6 +76,14 @@ export const apiKeys = pgTable('api_keys', {
 
 export const decisionStatus = pgEnum('decision_status', ['draft', 'in_review', 'published', 'rejected']);
 export const generatedBy = pgEnum('generated_by', ['ai', 'reviewer']);
+// AI metadata extraction, run by the extract-decision job (src/jobs). 'needs_manual_entry': the model's output
+// was unusable or every retry failed, so a person types the fields.
+export const extractionStatus = pgEnum('extraction_status', ['pending', 'done', 'needs_manual_entry']);
+// Normalised across languages ("appeal dismissed" is 'rejet'), so case-law search can filter on it
+export const decisionOutcome = pgEnum('decision_outcome', [
+  'cassation', 'cassation_partielle', 'rejet', 'irrecevabilite', 'incompetence', 'autre',
+]);
+
 // One row per document of kind 'decision'. Its text lives in chunks, like a statute's.
 // Only 'published' decisions are searchable: see `searchable` in search.service.ts.
 export const decisions = pgTable('decisions', {
@@ -89,8 +97,13 @@ export const decisions = pgTable('decisions', {
   caseNumber: text('case_number'),                // "Arrêt n° 045/2019"
   decisionDate: date('decision_date'),            // 'YYYY-MM-DD' string in TypeScript
   subject: text('subject'),
-  outcome: text('outcome'),                       // "cassation", "rejet", "irrecevabilité"
-  headnote: text('headnote'),
+  outcome: decisionOutcome('outcome'),
+  headnote: text('headnote'),                     // 3 sentences, in the decision's language
+  // The text before "a rendu l'Arrêt suivant": court, case number, date, but also party names.
+  // Never chunked or searchable; kept only until extraction succeeds or a reviewer publishes/rejects (CHECK below).
+  captionText: text('caption_text'),
+  extractionStatus: extractionStatus('extraction_status').notNull().default('pending'),
+  extractionError: text('extraction_error'),      // why it needs manual entry
   generatedBy: generatedBy('generated_by').notNull().default('reviewer'), // who wrote the metadata
   status: decisionStatus('status').notNull().default('draft'),
   sourceName: text('source_name').notNull(),      // "Ohadata", "greffe de la CCJA"
@@ -105,6 +118,8 @@ export const decisions = pgTable('decisions', {
   check('decisions_published_complete', sql`${t.status} <> 'published' OR (
     ${t.publishedAt} IS NOT NULL AND ${t.reviewedBy} IS NOT NULL
     AND ${t.court} IS NOT NULL AND ${t.decisionDate} IS NOT NULL)`),
+  // Party names in the caption never outlive publication
+  check('decisions_published_no_caption', sql`${t.status} <> 'published' OR ${t.captionText} IS NULL`),
   // Four eyes: nobody reviews their own upload
   check('decisions_reviewer_not_contributor', sql`${t.reviewedBy} IS DISTINCT FROM ${t.contributedBy}`),
 ]);

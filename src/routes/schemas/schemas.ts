@@ -142,7 +142,7 @@ const decisionExample = {
   id: '8d1f0c2e-4b7a-4e19-9c3d-5a6b7c8d9e0f', documentId: '2a9e7c41-6f3b-4d8a-b1c5-0e2f4a6b8c9d',
   title: 'CCJA, 1re ch., arrêt n° xxx/2019', language: 'fr', status: 'draft',
   court: 'CCJA', country: null, chamber: 'Première chambre', caseNumber: 'Arrêt n° xxx/2019', decisionDate: '2019-02-28',
-  sourceName: 'Ohadata', sourceUrl: null, chunkCount: 6, createdAt: '2026-11-26T09:12:00.000Z',
+  sourceName: 'Ohadata', sourceUrl: null, extractionStatus: 'pending', chunkCount: 6, createdAt: '2026-11-26T09:12:00.000Z',
 };
 
 export const createDecisionRouteSchema = {
@@ -151,7 +151,7 @@ export const createDecisionRouteSchema = {
   description:
     'A PDF (`file`) or plain text (`text`), never both, plus where it comes from. Stored as a **draft**: '
     + 'it is split by section (facts, each ground of appeal, operative part) and embedded, '
-    + 'but no search returns it until a reviewer publishes it. 30 uploads per hour per IP.',
+    + 'but no search returns it until a reviewer publishes it. Its metadata (court, date, case number, outcome, headnote) is then extracted by an LLM in the background: `extractionStatus` starts as `pending`. 30 uploads per hour per IP.',
   consumes: ['multipart/form-data'],
   ...withApiKey,
   body: createDecisionSchema,

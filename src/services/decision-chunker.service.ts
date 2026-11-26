@@ -163,6 +163,38 @@ export function findSections(fullText: string, lang: Lang): SectionSpan[] {
 }
 
 /**
+ * The caption: everything up to and including "a rendu l'Arrêt suivant". It holds the court, chamber, case number
+ * and date, which no chunk has, and the party names, which is why it is not chunked (see decisions.caption_text).
+ * Cleaned by joinPages like the chunks, so quotes from it can be checked against the same text.
+ * null when the language has no caption marker or the marker is absent.
+ */
+export function findCaption(pages: PageText[], lang: Lang): string | null {
+  const marker = MARKERS[lang].captionEnd;
+  if (!marker) return null;
+  const { fullText } = joinPages(pages);
+  const match = marker.exec(fullText);
+  if (!match) return null;
+  const caption = fullText.slice(0, match.index + match[0].length).trim();
+  return caption === '' ? null : caption;
+}
+
+const SECTION_ORDER: DecisionSection[] = [
+  'texte', 'procedure', 'faits', 'competence', 'recevabilite', 'moyen', 'evocation', 'depens', 'dispositif',
+];
+
+/**
+ * Reading order of a decision chunk's article_ref: procedure < faits < … < moyen-1 < moyen-2 < … < dispositif.
+ * Chunks have no position column, and page_start ties when two sections share a page.
+ * Unknown refs sort last.
+ */
+export function sectionRank(articleRef: string): number {
+  const m = /^([a-z]+)(?:-(\d+))?$/.exec(articleRef);
+  const index = m ? SECTION_ORDER.findIndex((s) => s === m[1]) : -1;
+  if (!m || index === -1) return Number.MAX_SAFE_INTEGER;
+  return index * 1000 + Number(m[2] ?? 1);
+}
+
+/**
  * Chunks a judgment: one chunk per section, one per moyen; a section over MAX_TOKENS is split on sentence ends
  * (each part labelled "[Sur le premier moyen, part 2]", as article parts are).
  * Without any recognisable structure, the whole text is split by size under the ref "texte".

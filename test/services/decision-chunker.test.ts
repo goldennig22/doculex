@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { chunkDecision, findSections } from '../../src/services/decision-chunker.service';
+import { chunkDecision, findCaption, findSections, sectionRank } from '../../src/services/decision-chunker.service';
 import type { PageText } from '../../src/interfaces/types';
 
 // The layout of a CCJA judgment, with placeholders for the parties and numbers (not a real case).
@@ -154,5 +154,37 @@ describe('chunkDecision', () => {
 
   it('returns [] for a PDF without text (scanned)', () => {
     expect(chunkDecision([{ page: 1, text: '' }, { page: 2, text: '  \n' }], { lang: 'fr', pathPrefix: 'CCJA' })).toEqual([]);
+  });
+});
+
+describe('findCaption', () => {
+  it('returns the text up to "a rendu l\'Arrêt suivant", with court, chamber, case number and date', () => {
+    const caption = findCaption([{ page: 1, text: JUDGMENT }], 'fr');
+    expect(caption).toContain("COUR COMMUNE DE JUSTICE ET D'ARBITRAGE (CCJA)");
+    expect(caption).toContain('Arrêt N° 000/2019 du 28 février 2019');
+    expect(caption?.endsWith("a rendu l'Arrêt suivant :")).toBe(true);
+    expect(caption).not.toContain('Sur le recours');
+  });
+
+  it('cleans the caption like the chunks (joinPages), so quotes from it match the extraction input', () => {
+    const pages = [{ page: 1, text: 'COUR COMMUNE DE JUSTICE ET D\'ARBITRAGE\nPremière cham-\nbre\na rendu l\'Arrêt suivant :\nSur le recours…' }];
+    expect(findCaption(pages, 'fr')).toContain('Première chambre');
+  });
+
+  it('returns null without the marker, and for English (no reliable marker)', () => {
+    expect(findCaption([{ page: 1, text: FAITS + MOYEN_1 }], 'fr')).toBeNull();
+    expect(findCaption([{ page: 1, text: JUDGMENT }], 'en')).toBeNull();
+  });
+});
+
+describe('sectionRank', () => {
+  it('orders article refs in reading order, moyens by number', () => {
+    const refs = ['dispositif', 'moyen-10', 'faits', 'moyen-2', 'procedure', 'competence-2', 'competence'];
+    expect([...refs].sort((a, b) => sectionRank(a) - sectionRank(b)))
+      .toEqual(['procedure', 'faits', 'competence', 'competence-2', 'moyen-2', 'moyen-10', 'dispositif']);
+  });
+
+  it('sorts unknown refs last', () => {
+    expect(sectionRank('7')).toBeGreaterThan(sectionRank('dispositif'));
   });
 });
