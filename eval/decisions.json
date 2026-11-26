@@ -1,0 +1,13 @@
+{
+  "_how_to_label": [
+    "One entry per decision, read by hand from the decision itself (never from Ohadata's summary).",
+    "file: the PDF (or a .txt) under eval/decisions/, relative to the project root.",
+    "Every field of expected is required. null means: the text does not state it. A model value where you put null counts as a guess ('invented').",
+    "court: 'CCJA' for the Cour Commune de Justice et d'Arbitrage, otherwise the name as written. country: ISO alpha-2, null for the CCJA.",
+    "caseNumber: the number of THIS decision ('Arrêt N° 045/2019'); only its digits are compared. decisionDate: YYYY-MM-DD.",
+    "outcome: cassation | cassation_partielle | rejet | irrecevabilite | incompetence | autre (from the LAST 'PAR CES MOTIFS').",
+    "subject: what you would write; the script prints it next to the model's, and --judge asks you y/n.",
+    "Include 2 or 3 decisions where fields are genuinely absent (an English judgment, a court that states no chamber): otherwise 'null when absent' is never tested."
+  ],
+  "decisions": []
+}

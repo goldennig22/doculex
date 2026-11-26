@@ -20,6 +20,7 @@
     "documents:embed-missing": "npx tsx src/scripts/embed-missing.ts",
     "documents:evaluate-retrieval": "npx tsx src/scripts/eval-retrieval.ts",
     "documents:evaluate-answers": "npx tsx src/scripts/eval-answers.ts",
+    "decisions:evaluate-extraction": "npx tsx src/scripts/eval-extraction.ts",
     "keys:create": "tsx src/scripts/create-api-key.ts",
     "exam": "npx tsx src/scripts/test.ts"
   },
