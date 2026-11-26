@@ -1,17 +1,11 @@
-import { generateText, Output } from 'ai';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
-import { createOpenAI } from "@ai-sdk/openai";
 import { env } from '../config/env';
 import { LlmAnswer, userPrompt, verifyCitations } from './answer.service';
 import { dedupeByArticle, detectLanguage, getArticleParts, searchByVector } from './search.service';
 import { AskResponse, AskResult, SearchResult, Source, SourceRef, UserQuery } from '../interfaces/types';
 import { storeQuery } from './queries.service';
 import { costUsd } from '../config/prices';
+import { generateObjectWithFallback } from './llm.service';
 
-const anthropic = createAnthropic({ apiKey: env.ANTHROPIC_API_KEY });
-const openAI = createOpenAI({ apiKey: env.OPENAI_API_KEY })
-const google = createGoogleGenerativeAI({ apiKey: env.GEMINI_API_KEY });
 const SYSTEM = `You answer questions about OHADA business law using ONLY the numbered sources provided.
 Rules:
 1. Use only facts stated in the sources. Never use outside knowledge, even if you know the answer.
@@ -20,34 +14,9 @@ Rules:
 4. Answer in the language of the question (French or English), even if the sources are in the other language.
 5. Be concise: 2 to 5 sentences. You are a research aid, not a lawyer.`;
 
-// Tried in order: if Anthropic is down or times out, OpenAI answers, then Gemini
-const MODELS = [
-  { name: env.LLM_MODEL, model: anthropic(env.LLM_MODEL) },
-  { name: env.LLM_2ND_MODEL, model: openAI(env.LLM_2ND_MODEL) },
-  { name: env.LLM_FALLBACK_MODEL, model: google(env.LLM_FALLBACK_MODEL) },
-];
-
-async function generateWithFallback(prompt: string) {
-  let lastError: unknown;
-  // AbortSignal.timeout(20_000)
-  for (const m of MODELS) {
-    try {
-      const res = await generateText({
-        model: m.model,
-        system: SYSTEM,
-        prompt,
-        output: Output.object({ schema: LlmAnswer }),
-        maxRetries: 1,
-        abortSignal: AbortSignal.timeout(10_000),
-      });
-      return { output: res.output, usage: res.usage, modelName: m.name };
-    } catch (err) {
-      lastError = err;   // log it with the model name, then try the next one
-      console.warn(`[ask] ${m.name} failed: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  }
-  throw lastError;
-}
+// Each of the 3 models gets 10 s (see llm.service.ts): a person is waiting
+const generateWithFallback = (prompt: string) =>
+  generateObjectWithFallback({ label: '[ask]', system: SYSTEM, prompt, schema: LlmAnswer, timeoutMs: 10_000 });
 
 /** Joins every part of each article, in the order the search ranked the articles. */
 async function buildSources(top: SearchResult[]): Promise<Source[]> {
