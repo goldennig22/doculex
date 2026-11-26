@@ -191,10 +191,14 @@ How to read latency and cost: the script calls the pipeline directly from a deve
 | **`ORDER BY distance`, not `similarity DESC`** | Postgres only uses the HNSW index when sorting by the distance operator itself. |
 | **Vector-only in v1** | Measured: every hybrid setting scored lower (see Results). |
 | **API keys stored as SHA-256, with roles (admin > reviewer > contributor)** | A database leak gives no usable key. SHA-256, not bcrypt: a 256-bit random key cannot be guessed, and a deterministic hash can be looked up by index. The key is shown once by `npm run keys:create`. 401 = unknown or revoked key, 403 = valid key, role too low. The legacy `ADMIN_API_KEY` (compared with `timingSafeEqual`) still works on the statute routes until it is retired. |
-| **Decisions chunked by section, one chunk per ground of appeal (moyen)** | A judgment has no "Article N". A size-based cut can separate a party's grievance from the court's answer, and the LLM would then present the losing argument as the holding. The last "PAR CES MOTIFS" is the dispositif (earlier ones quote the lower court). The caption (party names) and costs are not stored. |
+| **Decisions chunked by section, one chunk per ground of appeal (moyen)** | A judgment has no "Article N". A size-based cut can separate a party's grievance from the court's answer, and the LLM would then present the losing argument as the holding. The last "PAR CES MOTIFS" is the dispositif (earlier ones quote the lower court). Costs are not stored. The caption (party names, but also court, case number and date) is never chunked or searchable; it is kept in `decisions.caption_text` only until AI extraction succeeds or a reviewer publishes or rejects the decision, then set to NULL. A CHECK constraint forbids a published decision with a caption. |
 | **Unpublished decisions are filtered inside every SQL query** | One predicate (`searchableDocuments`) used by vector search, keyword search, `getArticleParts`, the public document routes and `lexeme_stats`. Filtering after the search would still let a draft take a top-5 place and set `topSimilarity`. A DB test gives a draft similarity 1.0 and checks no search returns it. `/ask` stays statutes-only until an eval with published decisions. |
 | **Upload limits in multipart, PDF checked by magic bytes** | The 20 MB limit stops reading before buffering; the client's `mimetype` can be faked, `%PDF-` cannot. |
 | **Zod schemas on the routes, converted for OpenAPI (no `zod-to-json-schema`, no type-provider package)** | One definition validates the request, checks the response and generates the docs, so they can't drift apart. Zod 4 converts to JSON Schema itself; the glue is ~60 lines (`src/utils/zod-fastify.ts`). A response that breaks its schema is a 500 (our bug), never a 422. |
+| **Decision metadata extracted by an LLM in a background job (pg-boss), not in the upload request** | The fallback chain can take ~90 s, longer than nginx waits, and a provider outage would turn a stored upload into a 500. pg-boss keeps the queue in the same Postgres (no Redis), so the job is sent inside the upload's transaction (`fromDrizzle`): no decision without its job, and no job that runs before its decision is committed. Provider errors retry (3, with backoff); a job that fails every retry goes to a dead-letter queue that marks the decision `needs_manual_entry`. |
+| **The extraction job is idempotent** | pg-boss runs a job at least once: it can run twice if it expires while still running or the process dies before completion is recorded. The job skips a decision that is no longer `pending`, and writes with `UPDATE … WHERE extraction_status = 'pending'`: two overlapping runs may both pay for the LLM, but only one writes. No transaction is held open across the LLM call. |
+| **Extracted fields must quote the decision** | Same discipline as `/ask`: each field comes with a quote, checked verbatim against the text sent; a date must match its quote (`10/05/2016` is 10 May); every digit of a case number must be in its quote; the CCJA never gets a country. A failing field becomes null, the others are kept. Invalid output (`NoObjectGeneratedError`) marks the decision for manual entry instead of retrying. What it can't catch, a real quote from the wrong passage (the pourvoi date), is what the extraction eval measures. |
+| **AI never overwrites a person** | Each column is written `COALESCE(column, ai_value)`: what the contributor typed wins. `generated_by` becomes `ai` only if the AI filled at least one empty field (so a row can be mixed; per-field tracking can come with the review step). `outcome` is an enum (`cassation`, `rejet`, `irrecevabilite`…) so French and English decisions can be filtered alike. |
 | **LLM always mocked in tests** | Tests stay fast, free and deterministic; quality is measured separately by the eval scripts. |
 | **Two refusal layers** | The threshold is free and stops clear noise; the LLM catches near misses the threshold can't separate (see the relevance threshold above). |
 | **Citations by source number + quote verification** | The model cites `source: 1`, never an article number it could invent; the server maps it to document, article and pages, and drops any quote not found in that source. |
@@ -301,6 +305,7 @@ The model names must match the keys of `src/config/prices.ts`, or `cost_usd` is 
 | `npm run documents:evaluate-retrieval -- --mode vector` | Retrieval evaluation (`vector` \| `keyword` \| `hybrid`, `--kw-weight`, `--same-lang`) |
 | `npm run documents:evaluate-answers` | Answer evaluation through the real `/ask` pipeline (`--ids 1,2`, `--show-all`, `--out file.json`). Calls the LLM: costs money, and writes to `queries` |
 | `npm run documents:embed-missing` | Embed chunks that have no vector yet |
+| `npm run decisions:evaluate-extraction` | Metadata extraction evaluation on the hand-labelled `eval/decisions.json`: per field correct / missed / invented / wrong (`--ids`, `--judge` to grade subjects y/n, `--out`). Calls the LLM: costs money |
 
 ### Tests
 
@@ -338,13 +343,14 @@ src/
   controllers/   validate input, call services, shape responses
   services/      chunker, documents (ingest), embeddings, search, ask (pipeline + fallback),
                  answer (prompt, schema, quote verification), queries (log), health
+  jobs/          pg-boss queue (started by server.ts) and the extract-decision job
   middleware/    requireRole (API keys with roles)
   config/        env (Zod-validated), prices per model
   db/            Drizzle schema and client
-  scripts/       eval-retrieval, eval-answers (+ lib/answer-grading), embed-missing
+  scripts/       eval-retrieval, eval-answers (+ lib/answer-grading), eval-extraction (+ lib/extraction-grading), embed-missing
   utils/         Zod schemas, validator, response helpers, error handler
 drizzle/         SQL migrations (including the custom pgvector and lexeme_stats ones)
-eval/            questions.json: the evaluation set
+eval/            questions.json (answers) and decisions.json (extraction): the evaluation sets
 test/            Vitest suites: api/ (routes), services/, scripts/
 ```
 
@@ -365,7 +371,7 @@ test/            Vitest suites: api/ (routes), services/, scripts/
 
 **Phase 2 (v2, December–January)**
 
-- Court decisions (CCJA and Cameroonian courts): upload, LLM metadata extraction with human review, anonymisation of personal names
+- Court decisions (CCJA and Cameroonian courts): ~~upload~~, ~~LLM metadata extraction in a background job~~ (Weekend 9: label `eval/decisions.json` and run the extraction eval), human review, anonymisation of personal names
 - Links from each article to the decisions that cite it; filtered case-law search
 
 **Not planned for v1:** user accounts, a polished frontend (a separate Next.js app comes in Phase 3), re-ranking models, OCR for scanned PDFs.
