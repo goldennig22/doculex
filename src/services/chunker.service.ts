@@ -81,6 +81,13 @@ export function cleanPageText(text: string): string {
     .replace(/\r\n?/g, '\n')
     // NUL and other control characters: Postgres rejects 0x00 in text columns
     .replace(/[\u0000-\u0008\u000B-\u000C\u000E-\u001F\u007F]/g, '')
+    // A running header glued to the page's first line: "Adopté le 10/04/1998 à Libreville (GABON)Article 67", or
+    // "(GABON)restitution", "(GABON)- soit", "(GABON)4°)" (the AUPSRVE PDF from a-mla.org: 13 articles lost, header
+    // text inside 29 others). Split there, so a heading starts its line and the header is a line of its own that
+    // stripRepeatedLines drops. Prose has a space after ")": over the two v1 Acts and 28 decisions this matched twice
+    // ("(2000,000,000)CFA francs", "1°)-b)"), where a line break changes nothing.
+    .replace(/\)(?=[\p{L}\p{N}-])/gu, ')\n')
+    .replace(/^Powered by TCPDF \(www\.tcpdf\.org\)$/gm, '') // generator stamp, last page only, so not "repeated"
     .replace(/^[ \t]*(?:\d{1,4}|[IVXLC]{1,6})[ \t]*$/gm, '') // page numbers and tab markers ("117", "IV")
     .replace(/[\uF0B7\u2022\u25CF]/g, '-') // bullet glyphs (private-use \uF0B7 in the AUDCG) -> "-"
     .replace(/(\p{L}+)-\n(\p{Ll})/gu, (_m, word: string, next: string) =>

@@ -26,7 +26,7 @@ const VIEW: ReviewView = {
   status: 'in_review', anonymisationStatus: 'done', extractionStatus: 'done',
   court: 'CCJA', country: null, chamber: null, caseNumber: null, decisionDate: '2019-02-28',
   subject: null, outcome: 'rejet', headnote: null, caption: 'Affaire : Monsieur X', sections: [],
-  unconfirmedMentions: 1, pendingEmbeddings: 0, publishedAt: null,
+  unconfirmedMentions: 1, pendingEmbeddings: 0, publishedAt: null, citations: [], openReports: 0,
   mentions: [{
     id: MENTION, placeholder: 'X', segment: 'caption', start: 19, end: 20, context: 'Affaire : Monsieur X',
     original: 'TCHOUPO Jean-Marie', source: 'both', confirmed: false,

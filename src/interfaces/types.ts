@@ -9,8 +9,8 @@ export type UploadDocumentInput = {
     title: string,
     language: 'fr'|'en',
     sourceUrl?: string|null,
-    actCode?: ActCode,
-    actVersion?: string,
+    actCode: ActCode,
+    actVersion: string,
 }
 
 export type ChunkDraft = {

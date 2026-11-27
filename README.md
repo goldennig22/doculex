@@ -97,6 +97,58 @@ Example response (shape):
 }
 ```
 
+### Case law (v2): from upload to the article page
+
+```mermaid
+flowchart LR
+  subgraph Upload["Upload (contributor key, 30 / h)"]
+    U[PDF or text] --> C[Chunk by section<br/>faits · moyen-N · dispositif]
+    C --> E1[Embed sections]
+  end
+
+  E1 --> D[(decision: draft)]
+
+  subgraph Jobs["Background jobs (pg-boss, enqueued in the upload's transaction)"]
+    X[Extract metadata<br/>LLM, every field quoted<br/>and checked verbatim]
+    A[Anonymise names<br/>rules ∪ LLM, names not offsets<br/>HMAC per decision]
+    L[Link citations<br/>rules, then LLM picks<br/>from a closed act list]
+    A --> L
+  end
+
+  D --> X
+  D --> A
+  A -- names replaced --> R[(in_review)]
+
+  subgraph Review["Human review (reviewer key, never the uploader)"]
+    R --> P[Confirm every name,<br/>fix metadata]
+    P --> G{Publish checks:<br/>all names confirmed?<br/>no hashed name left?<br/>court + date? embedded?}
+    G -- no --> P
+  end
+
+  G -- yes --> PUB[(published<br/>caption erased,<br/>links regraded)]
+  P -- reject --> REJ[(rejected)]
+
+  PUB --> S1[GET /api/decisions<br/>filters + meaning]
+  PUB --> S2[GET /api/articles/:doc/:ref<br/>the article + decisions citing it]
+  PUB --> S3[GET /api/search]
+  PUB -. "report (public, rate-limited):<br/>back to in_review at once" .-> R
+```
+
+Only `published` decisions are visible, and that is checked **inside every SQL query** (`searchableDocuments`), never filtered afterwards. Three CHECK constraints back it up: no published decision with a caption, without a reviewer, or with name detection not done.
+
+### Data and anonymisation policy
+
+The full policy, in French for the lawyer who reviewed it, is in [`docs/politique-donnees.md`](docs/politique-donnees.md). In short:
+
+- **Natural persons are anonymised** (parties, their lawyers, notaries, the trader behind *Établissements X*). Companies, the State, courts and the judges sitting in the case stay named. One person keeps one letter within a decision, and gets a different one in another decision.
+- **A person reviews every decision before it is public**, and the database refuses to publish while a name is unconfirmed. Clear names are erased from the database as each mention is confirmed. What stays is a keyed hash, used to check that no name reappears in the title, headnote or text.
+- **Not automated:** indirect identifiers (an address, a land title number). Reviewers flag them, and the decision stays unpublished.
+- **Before anonymisation, the clear text goes to LLM and embedding providers** (Anthropic, OpenAI, Google) for extraction, name detection and indexing. This is stated openly and was raised with the legal reviewer.
+- **Takedown:** anyone can report a published decision. A personal-data report takes it offline at once, before any check.
+
+<!-- TODO: replace with the reviewer's name/role and date once the lawyer has read docs/politique-donnees.md -->
+*Policy reviewed by: — (pending).*
+
 ### The chunker: the core of the project
 
 Legal answers have to cite an **article**, so DocuLex never splits by fixed size. `src/services/chunker.service.ts` is a pure function with no database and no PDF library, covered by 25 unit tests. It:
@@ -140,6 +192,36 @@ The two vector misses: #17 asks in English about a French article and is the fur
 
 **Next step:** translate the question before keyword search. That is one cheap LLM call, and it is the only change likely to make hybrid search worthwhile.
 
+### Filtered vector search: filter first, or vector first?
+
+**The trap, on the two Acts.** Query: the embedding of AUSCGIE art. 275 (*"The transfer of shares shall be evidenced in writing"*); filter: `section_path LIKE 'Livre 8%'` (69 of 1,226 chunks, unrelated to the query, like `q=cession de parts&country=CI`).
+
+| Plan | Rows (want 10) | Correct |
+| --- | --- | --- |
+| Planner's choice: Seq Scan, filter, exact distance on 69 rows | 10 | 10 / 10 (reference) |
+| HNSW forced, iterative scan off, `ef_search` 40, then 200 | **0** | 0 |
+| HNSW top 100, then filter | **0** | 0 |
+| HNSW forced, `hnsw.iterative_scan = relaxed_order` | 10 | 10 / 10 |
+
+`Rows Removed by Filter: 40` with `rows=0` in EXPLAIN ANALYZE is the symptom: the index handed over its 40 candidates, the filter removed all of them.
+
+**Decision search, per strategy** (`npm run decisions:bench-search`). Run on a **synthetic** corpus, because no real decision is ingested yet: 154 "decisions" of 8 consecutive real statute chunks each (real Gemini vectors), with courts, countries, years and citations assigned by rule. 15 questions, k = 10, recall against the exact ranking, time = Postgres execution time, "HNSW" = share of runs whose plan used the index.
+
+| Filter (share of decisions) | exact | hnsw-iterative | overfetch-5 | overfetch-50 |
+| --- | --- | --- | --- | --- |
+| none (100%) | 1.00, 27 ms | 1.00, 3.5 ms (HNSW) | 0.97, 3.4 ms | 1.00, 18 ms |
+| court (43%) | 1.00, 15 ms | 1.00, 9.6 ms (no HNSW) | 0.94, 3.1 ms | 1.00, 15 ms |
+| country (14%) | 1.00, 6.0 ms | 1.00, 4.2 ms (no HNSW) | **0.59**, 3.1 ms | 1.00, 16 ms |
+| year (4%) | 1.00, 2.0 ms | 1.00, 1.5 ms (no HNSW) | **0.32**, 3.0 ms | 1.00, 17 ms |
+| court + year (2%) | 1.00, 1.3 ms | 1.00, 0.8 ms (no HNSW) | **0.29**, 3.0 ms | 1.00, 13 ms |
+| act + article (5%) | 1.00, 2.0 ms | 1.00, 1.9 ms (no HNSW) | **0.28**, 3.1 ms | 0.98, 14 ms |
+
+- **"Vector then filter" (over-fetch) loses results exactly when the filter matters**: 0.28–0.32 recall for a 2–5% filter. Fetching 50× as many chunks fixes recall and makes it the slowest strategy. Rejected.
+- **With a filter on decisions, Postgres goes filter-first by itself**, even with `enable_seqscan = off`: it starts from the partial indexes on `decisions` and scores their chunks exactly (0% HNSW). The trap needs a filter the index can't avoid, like the `section_path` one above.
+- **Without a filter, exact is the slow one**: it scores every decision chunk (27 ms here, linear in chunks), where HNSW reads a few hundred (3.5 ms). That's the case of `GET /api/search`.
+
+Timing tip learned on the way: the first version timed the client and saw every strategy at 50–77 ms. That was Docker-on-Windows round trips and a 30 kB vector parameter, not the queries (0.8–27 ms in EXPLAIN ANALYZE). The benchmark now reads Postgres's own `Execution Time`.
+
 ### Relevance threshold (for `found: false`)
 
 | | Top cosine similarity |
@@ -177,6 +259,48 @@ What this does not check: whether the sentence itself is right. The script print
 
 How to read latency and cost: the script calls the pipeline directly from a development machine (no HTTP, no nginx), so production adds network time. Cost is LLM tokens only, at the price in `src/config/prices.ts`; the question's embedding is not counted. Questions stopped by the threshold cost no LLM call.
 
+### Case law (v2): v1 vs v2
+
+Run on 27 Nov 2026 with the AUPSRVE added to the corpus, on **62 questions**: the 42 above, kept unchanged so the runs can be compared, plus **20 case-law questions** (10 French, 10 English) whose answer is in one CCJA decision (`expected_case_numbers`), sometimes also in an article.
+
+**Retrieval (Hit@5).** v1 searches statutes only. "Mixed" puts the decision sections in the same index as the articles, in one top 5.
+
+| | Statutes only (v1) | Mixed (statutes + decisions) |
+| --- | --- | --- |
+| Case law: the right decision in the top 5 | 0 / 20 | **18 / 20** |
+| Case law: an expected article in the top 5 | **9 / 12** | 6 / 12 |
+| In-document: the right article in the top 5 | **30 / 32** | 29 / 32 |
+
+Decisions crowd articles out of a single top 5. The likely reason (not measured): a judgment quotes the article it applies, so its sections sit close to the same questions. **So `/ask` stays statutes-only for now.** When it cites decisions, it will retrieve the two kinds separately (top articles + top decisions) instead of competing for 5 places.
+
+**Answers (`/ask`), the same 62 questions.**
+
+| | v1 corpus, 42 questions (rerun 27 Nov) | v2 corpus, 62 questions |
+| --- | --- | --- |
+| In-document answered with an expected article | 30 / 32 | 30 / 32 |
+| Out-of-document refused | 10 / 10 | 10 / 10 |
+| Case law: answer cites the decision | — | **0 / 20** (`/ask` doesn't search decisions yet); 5 cite an expected article |
+| Mean latency · p95 | 3.1 s · 6.3 s | 3.0 s · 6.0 s |
+| Cost per question (LLM tokens) | $0.00040 | **$0.00038** ($0.00043 per LLM call, 55 calls) |
+
+For case law today, the answer is search, not `/ask`: `GET /api/decisions?q=…` or `?act=AUDCG&article=7`.
+
+### Extraction, anonymisation and citation links
+
+Measured on decisions reviewed by law students (`eval/review-tally.csv`, one row per decision; method in `docs/review-session.fr.md`). The reviewer's corrections are the errors. That makes these numbers a **ceiling**: a reviewer misses errors too. One decision in five was reviewed twice, blind, to estimate how many.
+
+<!-- TODO: fill from eval/review-tally.csv after the review sessions; leave "—" rather than an estimate -->
+| | Result |
+| --- | --- |
+| Metadata fields right as extracted (court, chamber, number, date, country, subject, outcome) | — |
+| Dates right (the judgment's, not the appeal's) | — |
+| Names detected (recall: 1 − missed / all person names) | — |
+| Wrongly hidden (a company, a sitting judge) | — |
+| Headnotes published unchanged | — |
+| Citation links right (precision) · citations found (recall) | — |
+| Review time per decision (median) | — |
+| Two reviewers agreed (double-checked decisions) | — |
+
 ---
 
 ## Design choices
@@ -190,6 +314,11 @@ How to read latency and cost: the script calls the pipeline directly from a deve
 | **1536-dimension embeddings** | pgvector's HNSW index supports at most 2000 dimensions for `vector`. |
 | **`ORDER BY distance`, not `similarity DESC`** | Postgres only uses the HNSW index when sorting by the distance operator itself. |
 | **Vector-only in v1** | Measured: every hybrid setting scored lower (see Results). |
+| **Decision search: filter first, then exact vector, best section per decision** | Measured (see Results): over-fetching then filtering drops to 0.28 recall with a selective filter, and with any filter on decisions the planner goes filter-first anyway. Exact also gives each decision its closest section (`match.section`), which a chunk-level top-k can't promise. Cost: without a filter it scores every decision chunk (27 ms for ~1,200 chunks, linear). **Revisit** when `bench-search` shows the unfiltered case above ~100 ms (roughly 4,500 decision chunks, ~550 decisions, extrapolated): then rank unfiltered searches with `hnsw.iterative_scan` and over-fetch for the grouping. `DISTINCT ON (document_id) … ORDER BY document_id, distance` cannot use HNSW by construction. |
+| **`hnsw.iterative_scan = relaxed_order` in `searchByEmbedding`** | A decisions-only search over a graph mostly made of statute chunks hits the filtered-HNSW trap: the 40 candidates are statutes, the WHERE removes them all, the result is empty (measured above). pgvector ≥ 0.8 keeps scanning until k rows pass; results are re-sorted (relaxed order). `SET LOCAL` in a transaction, never `SET`: the pool would keep it on the connection. |
+| **`q` orders decisions, it never filters them** | `total` is the same with or without `q`, so pagination and counts don't depend on a similarity cut-off that would need its own calibration. A case number typed in `q` (`45/2019`, any zero-padding) is matched on `decisions.case_number` and pinned first: the tsvector keeps `045/2019` as one token, so keyword search misses `45/2019`. Whether full-text helps beyond case numbers is measured by `bench-search` once `eval/decision-search.json` is labelled, kept out until then (same rule as hybrid for statutes). |
+| **Partial indexes for search, with the predicate stated in the query** | `(decision_date DESC, id)`, `(court, date)`, `(country, date)` `WHERE status = 'published'`: drafts are never searched. The query repeats `status = 'published'` word for word (the planner only uses a partial index when it can prove its predicate), sorts by `decision_date DESC NULLS LAST, id` (the index's own order: a bare `DESC` is `NULLS FIRST` and can't use it), and filters a year as a date range, never `extract(year …)`. Plus `decision_citations (act_code, article_ref)`: the existing index starts `(act_code, act_version, …)` and can't skip the version. |
+| **`GET /api/search` merges by raw cosine, not RRF** | Articles and decisions are scored by the same model against the same query vector, so the scores compare. RRF only looks at positions: on two lists with no item in common it reduces to strict alternation, however weak the fifth decision is. |
 | **API keys stored as SHA-256, with roles (admin > reviewer > contributor)** | A database leak gives no usable key. SHA-256, not bcrypt: a 256-bit random key cannot be guessed, and a deterministic hash can be looked up by index. The key is shown once by `npm run keys:create`. 401 = unknown or revoked key, 403 = valid key, role too low. The legacy `ADMIN_API_KEY` (compared with `timingSafeEqual`) still works on the statute routes until it is retired. |
 | **Decisions chunked by section, one chunk per ground of appeal (moyen)** | A judgment has no "Article N". A size-based cut can separate a party's grievance from the court's answer, and the LLM would then present the losing argument as the holding. The last "PAR CES MOTIFS" is the dispositif (earlier ones quote the lower court). Costs are not stored. The caption (party names, but also court, case number and date) is never chunked or searchable; it is kept in `decisions.caption_text` (anonymised like any chunk: it lists the parties, so detection reads it, and the reviewer needs it) until a reviewer publishes or rejects the decision, then set to NULL. A CHECK constraint forbids a published decision with a caption. |
 | **Unpublished decisions are filtered inside every SQL query** | One predicate (`searchableDocuments`) used by vector search, keyword search, `getArticleParts`, the public document routes and `lexeme_stats`. Filtering after the search would still let a draft take a top-5 place and set `topSimilarity`. A DB test gives a draft similarity 1.0 and checks no search returns it. `/ask` stays statutes-only until an eval with published decisions. |
@@ -201,7 +330,8 @@ How to read latency and cost: the script calls the pipeline directly from a deve
 | **Natural persons anonymised before publication: rules, then an LLM, then a person** | Cameroon's personal data law (Law No. 2024/017) is in force since 23 June 2026, and a party's name in a published decision is DocuLex's biggest legal risk. A background job (`anonymise-decision`, enqueued in the upload's transaction) runs two passes. **Rules** (a title or marker, then capitalised words: `M.`, `Mme`, `Monsieur`, `Maître`, `le sieur`, `Dame`, `le nommé`, `Mr`, `Mrs`, `Ets`…) are free and deterministic but blind to a bare name such as *« TCHOUPO, émancipé… »* in a quote. An **LLM** lists the persons, but is not trusted: it returns names verbatim, never offsets (a model counts tokens, not UTF-16 units, and an "almost right" offset publishes *Dame XA*), and a form not found in the text is dropped. The union is kept; every form of every person, including the upper-case surname derived from `TCHOUPO Jean-Marie`, is searched in every section, longest first (so `TCHOUPO` never splits `TCHOUPO Jean-Marie` into `X Jean-Marie`). Companies, the State, courts, and judges and clerks sitting in the case stay named; lawyers, notaries and the trader behind `Établissements KAMGA` (no legal personality of its own) do not. If the LLM fails, the rules still apply and the decision needs a manual review. |
 | **Stable placeholders, one row per mention, the clear name erased on confirmation** | The same person is `X` everywhere in a decision, the next `Y`, in order of first appearance. The chunk text holds the placeholder from the moment detection runs; `name_mentions.original_text` holds the clear name only until a reviewer confirms the mention (a CHECK forbids a confirmed mention with a clear name). Offsets point at the placeholders and move when an earlier mention of the same text is edited (`replaceSpan`, the only code that edits such a text); reviews lock the decision row, so two reviewers can't corrupt each other's offsets. A chunk whose text changed loses its embedding (a vector computed from the clear names is derived from personal data), and a re-embedding job is sent in the same transaction. |
 | **Names hashed with an HMAC, keyed and scoped to the decision** | Not plain SHA-256 as for API keys: a key is 256 random bits, a name is not, and hashing every surname of a list reverses an unkeyed hash in seconds. The key (`ANONYMISATION_HMAC_KEY`) lives outside the database, and the decision id is part of the message, so the same person in two decisions can't be linked. The hash is what makes the **leak check** possible: at publish, every 1–6-word sequence of every published field (title, headnote, subject, sections, section paths) is hashed and looked up, which catches the headnote the extraction LLM wrote from the clear text without ever storing the name. |
-| **Review flow: draft → in_review → published \| rejected, anything else 409** | The detection job moves a draft to `in_review`. `PATCH /api/decisions/:id` (reviewer) fixes metadata and confirms, puts back (`not_a_person`), reassigns or adds mentions, all or nothing. `POST /api/decisions/:id/publish` refuses with 409 until detection is done, every mention is confirmed, court and date are set, every chunk is embedded again and no hashed name is left; then it erases the caption. Zero mentions before detection would look like "nothing left to confirm", so a CHECK also forbids publishing a decision whose detection is not `done`. Nobody reviews their own upload: checked in the service (403), not left to the CHECK (a 500). |
+| **Review flow: draft → in_review → published \| rejected, anything else 409 (plus the takedown, below)** | The detection job moves a draft to `in_review`. `PATCH /api/decisions/:id` (reviewer) fixes metadata and confirms, puts back (`not_a_person`), reassigns or adds mentions, all or nothing. `POST /api/decisions/:id/publish` refuses with 409 until detection is done, every mention is confirmed, court and date are set, every chunk is embedded again and no hashed name is left; then it erases the caption. Zero mentions before detection would look like "nothing left to confirm", so a CHECK also forbids publishing a decision whose detection is not `done`. Nobody reviews their own upload: checked in the service (403), not left to the CHECK (a 500). Publishing again or rejecting resolves the decision's open reports. |
+| **Takedown: a personal-data report takes a decision offline at once, behind a daily breaker** | `POST /api/decisions/:id/report` is public (no account needed to report your own name). Reason `personal_data` moves the decision back to `in_review` **before anyone checks**: a name left visible is the biggest legal risk, and a wrongful takedown only costs a re-publication. The other reasons are stored and notified, and the decision stays up. A public takedown is also a way to empty the site (4 addresses × 5 reports an hour = 100 decisions offline in 5 hours), so automatic takedowns stop at **5 per 24 hours**. Past that, reports are still stored and notified as "breaker open". The count runs under a Postgres advisory lock: a test fires two reports at once with one takedown left, and exactly one goes down. The answer is the same `202 { reportId }` either way, and any decision that is not published gets a `404`, like an unknown id. The notice (an ntfy topic, `NOTIFY_URL`, required in production) carries the reason, the public title and the review path, **never the reporter's message or address**: the message may hold the very name being reported. The job is enqueued in the report's transaction. |
 | **AI never overwrites a person** | Each column is written `COALESCE(column, ai_value)`: what the contributor typed wins. `generated_by` becomes `ai` only if the AI filled at least one empty field (so a row can be mixed; per-field tracking can come with the review step). `outcome` is an enum (`cassation`, `rejet`, `irrecevabilite`…) so French and English decisions can be filtered alike. |
 | **Citations stored as (act, version, article), not as a document or chunk id** | Article numbers belong to a *version* of an Act: AUDCG 1997 and 2010 number commercial leases differently (arts. 69–102 vs 101–134), so a 2008 decision's "article 7 de l'AUDCG" is not the 2010 article 7. A document id dies when a statute is deleted and uploaded again; chunk ids are recreated on re-ingest and differ per part. A statute declares what it holds (`documents.act_code`, `act_version`, set at upload or with `npm run documents:set-act`), and the article page joins on that. The version is the one named in the text ("du 17 avril 1997", "révisé"), otherwise the one in force on the decision date; less than 5 years after a revision it is only `medium` (the old version may govern the facts). |
 | **Citation detection by rules first, in two passes** | Pass 1 lists every act named in the decision (abbreviations in upper case, titles by keyword so "relatif au droit des sociétés commerciales" without the GIE still matches, out-of-corpus texts like the Code civil so they are never guessed as the next article's act). Pass 2 reads each "article(s)" with its list ("13, 14 et 15"), range ("13 à 15", capped at 30; the hyphen in "35-1" is a sub-number) and qualifiers ("alinéa 2" is never an article), then attaches the act in a fixed order: named right after, "du même Acte uniforme", "susvisé" (the earlier citation of the same article), "en son article", then the last act of the paragraph (a guess, so `medium`). A title it doesn't know stays unresolved rather than taking the paragraph's act. Matching runs on a folded copy of the text with the *same length* (no NFD: it shifts every offset after an accent). |
@@ -213,7 +343,7 @@ How to read latency and cost: the script calls the pipeline directly from a deve
 | **Three-model fallback (Claude → OpenAI → Gemini)** | Providers fail independently; an answer from the fallback beats a 500. The model that answered is logged. |
 | **One `queries` row per question, every path** | Each refusal layer, error rate, cost and latency can be measured from production data, not guessed. Logging failures are reported but never break an answer. |
 | **Answer eval without an LLM judge** | A judge would be a second model to trust and pay for. Verified citations to expected articles are deterministic; the meaning is checked by reading the printed misses. |
-| **Rate limit on `/ask` only, 10 / min / IP (`@fastify/rate-limit`)** | `/ask` is the only route that costs money. Fixed window per IP, kept in memory (one process on one VPS). The library bounds memory with an LRU and sends `retry-after`, which a hand-written `Map` would not. |
+| **Rate limits: a global ceiling, and lower ones where a route costs money or writes (`@fastify/rate-limit`)** | Every route: 300 / min / IP. The database-only public routes cost CPU and connections too; at first only the paid routes were limited. `/ask` (an LLM call): 10 / min / IP. The public searches (`GET /api/decisions`, `GET /api/search`) embed `q`, a cheap but paid call: 60 / min / IP. Reports, the only public write: 5 / hour / IP, with a body under 4 KB. Decision uploads (embedding every section): 30 / hour **per API key**, not per IP, so a leaked key used from many addresses still gets only 30. This works because the limit runs after `requireRole`, which sets the key. Each upload is also capped at 150 pages and 200 chunks (the largest of the first 39 real decisions has 16 pages and 21 chunks). Fixed window, kept in memory (one process on one VPS). The library bounds memory with an LRU and sends `retry-after`, which a hand-written `Map` would not. |
 | **`trustProxy` set to the proxy's address, not `true`** | Behind nginx every request comes from the proxy; as the container sees it, that is the Docker network's gateway (`172.28.50.1`), not `127.0.0.1`. Without it all clients share one rate-limit bucket; trusting any proxy would let a client fake `X-Forwarded-For`. |
 | **Global error handler, `requestId` in every error** | 5xx responses never contain SQL, query parameters, stack traces or provider messages; the full error (with a Drizzle error's `cause`) is logged under the same request id. |
 | **`ON DELETE CASCADE` on `chunks.document_id`** | Deleting a document is one atomic statement; no orphan chunks if the second of two deletes fails. |
@@ -238,7 +368,7 @@ How to read latency and cost: the script calls the pipeline directly from a deve
 
 ## API
 
-Interactive docs with request and response examples (including `found: false`) are at **`/docs`**, generated from the same Zod schemas that validate requests and check responses. A small demo page is served at `/`.
+Interactive docs with request and response examples (including `found: false`) are at **`/docs`**, generated from the same Zod schemas that validate requests and check responses. A small demo page is served at `/`: questions, and the case law of an article with a report form on each decision. Reviewers have their own page at `/review`: the queue, then one decision at a time, read with the reviewer's own key.
 
 All routes are under `/api`. Responses use one shape: `{ status: "success", data }` or `{ status: "failed", message, errors?, requestId? }`. An invalid request gets a `422` with `errors` by field. Every error raised outside a controller (validation, invalid JSON, rate limit, server errors) carries a `requestId` that matches the server log; a 5xx only ever says `Internal server error`.
 
@@ -250,10 +380,16 @@ All routes are under `/api`. Responses use one shape: `{ status: "success", data
 | `GET /api/documents` | None | List documents |
 | `GET /api/documents/:documentId/show` | None | One document; `422` if the id isn't a uuid, `404` if no such document |
 | `DELETE /api/documents/:documentId/delete` | `x-api-key` | Delete a document and its chunks; `422` if the id isn't a uuid, `404` if no such document |
-| `GET /api/decisions/:decisionId` | Reviewer key | A decision for review: metadata, the whole anonymised text, each name mention with its context and, until confirmed, the clear name |
+| `GET /api/decisions/:decisionId` | Reviewer key | A decision for review: metadata, the whole anonymised text, each name mention with its context and, until confirmed, the clear name; every citation found, with its act, version and confidence; the number of open reports |
 | `PATCH /api/decisions/:decisionId` | Reviewer key | `{ metadata?, mentions?: [{ id, action: confirm \| not_a_person \| reassign }], addMentions?, anonymisationChecked?, status?: in_review \| rejected }`; `403` own upload, `409` illegal transition or published/rejected decision |
+| `POST /api/decisions` | Contributor key | Multipart: `file` (PDF) or `text`, `title`, `language`, `sourceName`, optional metadata → a draft; `422` over 150 pages or 200 chunks, `429` past 30 / hour for the key |
+| `GET /api/decisions/queue` | Reviewer key | Decisions waiting for review (and drafts whose detection failed): reported first, then oldest; `ownUpload` marks the ones this key may not review |
+| `POST /api/decisions/:decisionId/report` | None | `{ reason: personal_data \| wrong_metadata \| wrong_text \| other, message?, contact? }` → `202 { reportId }`. `personal_data` takes the decision offline at once (up to 5 a day); `404` unless published, `413` over 4 KB, `429` past 5 / hour / IP |
 | `POST /api/decisions/:decisionId/publish` | Reviewer key | `409` while detection is pending, a mention is unconfirmed, court/date is missing, a section is being re-embedded, or an anonymised name is still in a published field |
 | `POST /api/ai/ask` | None | `{ question }` (3–1000 characters) → `{ found, answer, citations[], confidence, language }`; `422` invalid, `429` over 10 requests / minute / IP |
+| `GET /api/decisions` | None | Published decisions: `q?`, `court?`, `country?`, `year?`, `subject?`, `outcome?`, `act?` + `article?` + `version?`, `page`, `limit` (max 50) → `{ items, page, limit, total, totalPages }`. With `q`, ranked by each decision's closest section (`match.section`, `match.similarity`), a case number in `q` first; without, newest first. `q` orders, never removes: `total` is the same. Past the last page: 200, no items. `422` for `article` without `act` |
+| `GET /api/search` | None | `q`, `limit?` → statute articles and published decisions in one list, each with `type: article | decision`, by similarity |
+| `GET /api/stats` | None | Published decisions by court, by country and by year, plus the total |
 
 ```bash
 curl -X POST http://localhost:3000/api/ai/ask -H "content-type: application/json" \
@@ -300,6 +436,7 @@ curl -X POST http://localhost:3000/api/documents/upload \
 | `LLM_FALLBACK_MODEL` | Yes | Last model (Gemini) |
 | `MIN_SIMILARITY` | Yes | Layer-1 cutoff; below it `/ask` refuses without calling the LLM (`0.6`) |
 | `LLM_PROVIDER` | No | `anthropic` \| `openai` \| `google`, for the health check |
+| `NOTIFY_URL` | In production | Where reports on decisions are announced (a plain-text POST; a secret ntfy topic URL works as is). The app refuses to boot in production without it; in development the notice is printed |
 | `TRUST_PROXY` | No | Address of the reverse proxy as the app sees it; set in `deploy/docker-compose.prod.yml` (`172.28.50.1`). Unset in development |
 | `EMBEDDING_PARALLEL_CALLS` | No | Default `2`, gentle on free-tier rate limits |
 | `PORT` | No | Default `3000` |
@@ -314,6 +451,7 @@ The model names must match the keys of `src/config/prices.ts`, or `cost_usd` is 
 | `npm run dev` | Start with reload |
 | `npm test` | Vitest (with `RUN_DB_TESTS=1` and `TEST_DATABASE_URL`, also the Postgres integration tests) |
 | `npm run lint` / `npm run typecheck` | ESLint / `tsc --noEmit` |
+| `npm run keys:create -- --role reviewer --label "relecteur-1"` · `npm run keys:revoke -- --label "relecteur-1"` | Create a key (shown once), or revoke keys by `--label` or `--prefix`; `--list` shows the active ones. Revoke student keys after each review session |
 | `npm run db:generate -- --name=<change>` | New migration from `schema.ts` |
 | `npm run db:migrate` | Apply migrations |
 | `npm run documents:evaluate-retrieval -- --mode vector` | Retrieval evaluation (`vector` \| `keyword` \| `hybrid`, `--kw-weight`, `--same-lang`) |
@@ -321,11 +459,13 @@ The model names must match the keys of `src/config/prices.ts`, or `cost_usd` is 
 | `npm run documents:embed-missing` | Embed chunks that have no vector yet |
 | `npm run documents:set-act -- --document <uuid> --act AUDCG --version 2010` | Says which act version a statute already uploaded holds, then grades every decision's citations again |
 | `npm run decisions:evaluate-anonymisation` | Name detection evaluation on hand-labelled decisions in `eval/persons.local.json` (gitignored: real names): recall of name occurrences for rules only, LLM only and both, plus wrongly hidden and extra mentions (`--ids`, `--out` writes counts only). Calls the LLM: costs money |
+| `npm run decisions:ingest -- --dir eval/decisions-pdf` | Uploads a folder of decision PDFs (named by reference, never by party; optional `<name>.json` with known metadata) through the real path and runs the jobs. `--publish-unreviewed` confirms every detected name **unread** and publishes: local benchmark data only, refused in production. Calls the LLM: costs money |
+| `npm run decisions:bench-search` | Filtered vector search, measured: recall and Postgres execution time of exact vs HNSW vs over-fetch per filter, which plan ran, `--explain` for the API's real plans; vector vs keyword when `eval/decision-search.json` is labelled. Embeds each question once (cached in `eval/.cache/`) |
 | `npm run decisions:evaluate-extraction` | Metadata extraction evaluation on the hand-labelled `eval/decisions.json`: per field correct / missed / invented / wrong (`--ids`, `--judge` to grade subjects y/n, `--out`). Calls the LLM: costs money |
 
 ### Tests
 
-323 test cases. The LLM and the embedding provider are always mocked; only the eval scripts call them for real.
+619 test cases. The LLM and the embedding provider are always mocked; only the eval scripts call them for real.
 
 | Suite | Tests | Covers |
 | --- | --- | --- |
@@ -333,7 +473,9 @@ The model names must match the keys of `src/config/prices.ts`, or `cost_usd` is 
 | Search | 16 | 9 unit (RRF, language detection, de-duplication) + 7 against real Postgres + pgvector |
 | Ask service | 11 | Every `stopped_at` path, citation mapping, the three-model fallback, a failed log insert |
 | Answer helpers | 11 | Quote verification (missing source, wrong quote, empty/short quote, normalisation) and cost |
-| `/ask` route | 10 | `422`, `429` per IP (invalid requests count too), other routes unlimited, no leak in a `500` |
+| `/ask` route | 10 | `422`, `429` per IP (invalid requests count too), its own bucket, no leak in a `500` |
+| Authorization matrix | 124 | Every route × every caller (none, malformed, revoked, legacy, contributor, reviewer, admin) → its status; 401/403 before 422; reports: an identical `202` body either way, `422`, `413`, `429` on the 6th; uploads limited per key; the global ceiling; `/review` |
+| Reports against Postgres | 15 | Takedown on `personal_data` (gone from search, job sent in the transaction), other reasons stay up, `404` for every unpublished status, the breaker, two simultaneous reports with one takedown left, the review view and queue after a takedown, republish or reject resolves, the notice never carries the message or address, retries on a non-2xx |
 | Answer grading | 9 | Eval verdicts, percentiles, summary |
 | Upload route | 7 | `401`, `422`, `413`, `201`, `500` without internals |
 | Delete route | 3 | `422`, `404`, `200` |
@@ -341,7 +483,9 @@ The model names must match the keys of `src/config/prices.ts`, or `cost_usd` is 
 | Anonymisation (pure) | 65 | Rules (titles, functions, companies, sole traders, judges), derived surnames, Unicode boundaries, stable placeholders, a quoted name with no title, longest form first, `replaceSpan` offsets, HMAC, leak check, all 16 status transitions |
 | Anonymisation job | 9 | LLM mocked: names replaced, no name in the job output, rules only on bad output, retry on provider errors, idempotent |
 | Review routes | 20 | `401`/`403` per route, `422` bodies, `409` passed on |
-| Review against Postgres | 22 | Detection, mentions and hashes, publish refused with unconfirmed mentions, illegal transitions, reject, `not_a_person` offsets, `addMentions`, four eyes, and a leak test: no fixture party name in any published API response, with a check that every `/api` route is scanned or exempt with a reason |
+| Review against Postgres | 26 | Detection, mentions and hashes, publish refused with unconfirmed mentions, illegal transitions, reject, `not_a_person` offsets, `addMentions`, four eyes, and a leak test: no fixture party name in any published API response (the searches and the article page included), with a check that every `/api` route is scanned or exempt with a reason |
+| Decision search | 44 | 23 pure (case-number matching, pagination, merge order) and `422`s + 21 against Postgres: each filter (year boundaries, stemmed subject, `low` citations excluded), last page and past the end, ranking by best section, case number first, drafts that match every filter and are closest to `q` never in any search or count, articles and decisions merged, a decisions-only vector search among closer statute chunks |
+| Search benchmark helpers | 5 | Recall@k, percentiles, chunks grouped into decisions, case-number keys |
 
 Locally, the integration tests need their own database (never the dev one: they insert fixtures and rank over every chunk):
 
@@ -393,7 +537,8 @@ test/            Vitest suites: api/ (routes), services/, scripts/
 **Phase 2 (v2, December–January)**
 
 - Court decisions (CCJA and Cameroonian courts): ~~upload~~, ~~LLM metadata extraction in a background job~~ (Weekend 9: label `eval/decisions.json` and run the extraction eval), ~~human review~~, ~~anonymisation of personal names~~ (Weekend 10: label `eval/persons.local.json` and run the anonymisation eval)
-- ~~Links from each article to the decisions that cite it~~ (Weekend 11: set the act of the two ingested statutes with `documents:set-act`, then label citations for an eval); filtered case-law search
+- ~~Links from each article to the decisions that cite it~~ (Weekend 11: set the act of the two ingested statutes with `documents:set-act`, then label citations for an eval)
+- ~~Filtered case-law search, one search box, counts~~ (Weekend 12). To do: ingest 30–50 real decisions (`decisions:ingest`), run `decisions:bench-search` on them instead of the synthetic corpus, label `eval/decision-search.json` and measure keyword search on decisions
 
 **Not planned for v1:** user accounts, a polished frontend (a separate Next.js app comes in Phase 3), re-ranking models, OCR for scanned PDFs.
 

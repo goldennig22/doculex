@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { errorGrade, gradeAnswer, percentile, summarize, type EvalQuestion } from '../../src/scripts/lib/answer-grading';
+import {
+  errorGrade, gradeAnswer, matchesCaseNumber, percentile, summarize, type EvalQuestion,
+} from '../../src/scripts/lib/answer-grading';
 import type { AskResult, AskResponse, AskTrace, Citation } from '../../src/interfaces/types';
 
 const AUDCG = 'Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra';
@@ -82,6 +84,47 @@ describe('gradeAnswer: out-of-document', () => {
   });
 });
 
+// Questions 49 and 55 of eval/questions.json: one with an ingested article (AUPSRVE 157), one without (arbitration)
+const AUPSRVE = "Acte uniforme OHADA du 10 avril 1998 portant organisation des procédures simplifiées de recouvrement et des voies d'exécution";
+const q49: EvalQuestion = {
+  id: 49, language: 'fr', category: 'case_law', expected_case_numbers: ['190/2015'], expected_articles: ['157'],
+  expected_title: AUPSRVE, question: "L'omission de la date dans un acte de saisie-attribution entraîne-t-elle sa nullité ?",
+};
+const q55: EvalQuestion = {
+  id: 55, language: 'fr', category: 'case_law', expected_case_numbers: ['097/2015'],
+  question: "La nullité du contrat principal entraîne-t-elle la nullité de la clause compromissoire qu'il contient ?",
+};
+
+describe('gradeAnswer: case law', () => {
+  it('is article only when a statutes-only answer cites the article the decision applies', () => {
+    const g = gradeAnswer(q49, result({ answer: "L'acte contient à peine de nullité…", citations: [cite('157', AUPSRVE)] }));
+    expect(g).toMatchObject({ verdict: 'article_only', retrieved: false, language: 'fr' });
+  });
+
+  it('is missed when refused, never "refused" as an out-of-document question would be', () => {
+    expect(gradeAnswer(q55, refusal('llm'))).toMatchObject({ verdict: 'missed', retrieved: null });
+  });
+
+  it('is a wrong article when it answers from another article', () => {
+    expect(gradeAnswer(q55, result({ answer: 'La clause…', citations: [cite('9')] })).verdict).toBe('wrong_article');
+  });
+});
+
+describe('matchesCaseNumber', () => {
+  it('matches whatever the zero-padding and the surrounding words', () => {
+    expect(matchesCaseNumber(['8/2015'], 'Ordonnance N°008/2015/CCJA')).toBe(true);
+    expect(matchesCaseNumber(['045/2019'], 'Arrêt n° 45/2019 du 14 mars 2019')).toBe(true);
+    expect(matchesCaseNumber(['3/2015'], 'AVIS N° 03/2015')).toBe(true);
+  });
+  it('does not match another number that contains it', () => {
+    expect(matchesCaseNumber(['91/2015'], 'Arrêt N° 191/2015')).toBe(false);
+    expect(matchesCaseNumber(['191/2015'], null)).toBe(false);
+  });
+  it('throws on a label that is not a case number, instead of never matching', () => {
+    expect(() => matchesCaseNumber(['arrêt société de fait'], 'Arrêt N° 191/2015')).toThrow(/Not a case number/);
+  });
+});
+
 describe('percentile', () => {
   it('uses the nearest rank', () => {
     const v = [900, 100, 300, 200, 500, 400, 600, 700, 800, 1000];
@@ -114,5 +157,8 @@ describe('summarize', () => {
     expect(s.cost.meanPerLlmCallUsd).toBeCloseTo(0.0003, 10);
     expect(s.cost).toMatchObject({ llmCalls: 3, unpricedCalls: 1 }); // the threshold refusal made no LLM call
     expect(s.models).toEqual({ 'claude-haiku-5-5': 2, 'gpt-6-luna': 1 });
+    expect(s.byCategoryLanguage).toEqual({
+      'in_document/fr': { ok: 1, total: 2 }, 'out_of_document/en': { ok: 2, total: 2 }, 'in_document/en': { ok: 0, total: 1 },
+    });
   });
 });

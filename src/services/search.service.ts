@@ -88,27 +88,43 @@ const tsq = (lang: Lang, q: string): SQL => sql`(
   )
 )`;
 
-export async function searchByVector(question: string, k = 8, { kinds }: SearchScope = {}): Promise<SearchResult[]> {
-  const q = await embedQuery(question);
+export async function searchByVector(question: string, k = 8, scope: SearchScope = {}): Promise<SearchResult[]> {
+  return searchByEmbedding(await embedQuery(question), k, scope);
+}
+
+/**
+ * The k chunks nearest to an embedding, within the scope. Takes the vector so a caller that runs several searches
+ * for one question (GET /api/search) pays for one embedding call.
+ *
+ * Filtered HNSW: the index returns its ef_search (40) nearest candidates, THEN Postgres applies the WHERE. When every
+ * one of those 40 is filtered out (a decisions-only search whose nearest chunks are all statute articles), the result
+ * is EMPTY, not just short. Measured on the two Acts: a filter to Livre 8 (69 of 1,226 chunks) with a query about share
+ * transfers returned 0 rows, and still 0 with ef_search = 200. pgvector >= 0.8's iterative scan keeps reading the
+ * graph until k rows pass the filter. relaxed_order may return them slightly out of distance order, so they are
+ * sorted again here. SET LOCAL needs the transaction: a plain SET would stay on the pooled connection.
+ */
+export async function searchByEmbedding(q: number[], k = 8, { kinds }: SearchScope = {}): Promise<SearchResult[]> {
   const distance = cosineDistance(chunks.embedding, q);
 
-  return db
-    .select({
-      id: chunks.id,
-      articleRef: chunks.articleRef,
-      pageStart: chunks.pageStart,
-      content: chunks.content,
-      similarity: sql<number>`1 - (${distance})`,
-      documentTitle: documents.title,
-      documentId: documents.id,
-    })
-    .from(chunks)
-    .innerJoin(documents, eq(chunks.documentId, documents.id))
-    // HNSW reads ef_search (40) candidates, THEN applies the WHERE: with many unpublished decisions
-    // the limit may not fill. Fine while drafts are few; with pgvector >= 0.8, `SET LOCAL hnsw.iterative_scan` fixes it.
-    .where(and(isNotNull(chunks.embedding), searchableDocuments(kinds)))
-    .orderBy(distance) // ascending DISTANCE, so Postgres can use the HNSW index
-    .limit(k);
+  const rows = await db.transaction(async (tx) => {
+    await tx.execute(sql`SET LOCAL hnsw.iterative_scan = relaxed_order`);
+    return tx
+      .select({
+        id: chunks.id,
+        articleRef: chunks.articleRef,
+        pageStart: chunks.pageStart,
+        content: chunks.content,
+        similarity: sql<number>`1 - (${distance})`,
+        documentTitle: documents.title,
+        documentId: documents.id,
+      })
+      .from(chunks)
+      .innerJoin(documents, eq(chunks.documentId, documents.id))
+      .where(and(isNotNull(chunks.embedding), searchableDocuments(kinds)))
+      .orderBy(distance) // ascending DISTANCE, so Postgres can use the HNSW index
+      .limit(k);
+  });
+  return rows.sort((a, b) => b.similarity - a.similarity);
 }
 
 /**

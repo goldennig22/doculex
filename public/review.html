@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<title>DocuLex · Relecture</title>
+<style>
+  :root { --bg: #fafaf7; --fg: #1d1d1b; --muted: #6b6b66; --line: #e3e2dc; --accent: #1f5f8b; --mark: #fff1b8; --warn-bg: #fff6e0; --warn: #8a5a00; --err: #a0302a; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161614; --fg: #ecebe6; --muted: #9c9b95; --line: #34332f; --accent: #7db7e0; --mark: #5a4a12; --warn-bg: #2e2716; --warn: #e3b860; --err: #ec8a84; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 60rem; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+  h1 { font-size: 1.4rem; margin: 0 0 .25rem; }
+  h2 { font-size: 1.1rem; margin: 2rem 0 .5rem; }
+  .meta { color: var(--muted); font-size: .85rem; }
+  .row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; }
+  input, button { font: inherit; color: inherit; border-radius: 8px; }
+  input { background: transparent; border: 1px solid var(--line); padding: .45rem .6rem; min-width: 22rem; }
+  button { cursor: pointer; padding: .45rem 1rem; background: var(--accent); color: var(--bg); border: 0; font-weight: 600; }
+  button.plain { background: transparent; color: var(--accent); border: 1px solid var(--line); font-weight: 400; }
+  table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+  th, td { text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; }
+  tr.pick { cursor: pointer; }
+  tr.pick:hover { background: var(--line); }
+  .notice { border-radius: 8px; padding: .8rem 1rem; background: var(--warn-bg); color: var(--warn); margin: 1rem 0; }
+  .error { color: var(--err); }
+  .section { border: 1px solid var(--line); border-radius: 8px; padding: .7rem .9rem; margin: .6rem 0; white-space: pre-wrap; }
+  .section h3 { font-size: .9rem; margin: 0 0 .4rem; color: var(--muted); white-space: normal; }
+  mark { background: var(--mark); color: inherit; padding: 0 .1em; border-radius: 3px; }
+  .clear { font-weight: 600; }
+  #view:empty, #queue:empty { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Relecture des décisions</h1>
+  <p class="meta">Clé « relecteur » personnelle. Elle reste dans cet onglet seulement (sessionStorage) et disparaît à sa fermeture.
+    Les noms en clair affichés ici sont confidentiels : ne les copiez nulle part. Les corrections se font avec
+    <code>PATCH /api/decisions/:id</code> et la publication avec <code>POST /api/decisions/:id/publish</code> (<a href="/docs">/docs</a>).</p>
+
+  <form id="login" class="row">
+    <input id="key" type="password" autocomplete="off" placeholder="dlx_…" aria-label="Clé relecteur">
+    <button type="submit">Charger la file</button>
+    <button type="button" class="plain" id="logout">Oublier la clé</button>
+  </form>
+  <p id="status" class="meta" aria-live="polite"></p>
+
+  <section id="queue"></section>
+  <section id="view"></section>
+</main>
+
+<script>
+  // Every value from the API goes through textContent: decision text is data, never HTML.
+  const KEY = 'doculex-review-key';
+  const status = document.getElementById('status');
+  const queueBox = document.getElementById('queue');
+  const viewBox = document.getElementById('view');
+  const keyInput = document.getElementById('key');
+
+  function el(tag, text, className) {
+    const node = document.createElement(tag);
+    if (text !== undefined && text !== null) node.textContent = String(text);
+    if (className) node.className = className;
+    return node;
+  }
+
+  async function api(path) {
+    const key = sessionStorage.getItem(KEY);
+    const res = await fetch(path, { headers: { 'x-api-key': key ?? '' } });
+    const body = await res.json().catch(() => null);
+    if (res.status === 401) throw new Error('Clé invalide ou révoquée.');
+    if (res.status === 403) throw new Error('Cette clé n\'a pas le rôle relecteur.');
+    if (!res.ok || body?.status !== 'success') throw new Error(body?.message ?? `Erreur ${res.status}`);
+    return body.data;
+  }
+
+  function table(headers, rows) {
+    const t = el('table');
+    const head = el('tr');
+    for (const h of headers) head.append(el('th', h));
+    t.append(head);
+    for (const r of rows) t.append(r);
+    return t;
+  }
+
+  async function loadQueue() {
+    viewBox.replaceChildren();
+    status.textContent = 'Chargement…';
+    try {
+      const items = await api('/api/decisions/queue');
+      status.textContent = `${items.length} décision(s) à relire.`;
+      const rows = items.map((d) => {
+        const tr = el('tr', undefined, d.ownUpload ? '' : 'pick');
+        for (const v of [
+          d.title, d.decisionDate ?? '—', d.status === 'draft' ? 'détection échouée : tout lire' : `${d.unconfirmedMentions} nom(s) à confirmer`,
+          d.openReports ? `${d.openReports} signalement(s)` : '', d.ownUpload ? 'votre téléversement : pas pour vous' : '',
+        ]) tr.append(el('td', v));
+        if (!d.ownUpload) tr.addEventListener('click', () => loadDecision(d.id));
+        return tr;
+      });
+      queueBox.replaceChildren(el('h2', 'File de relecture'), table(['Décision', 'Date', 'Noms', 'Signalée', ''], rows));
+    } catch (err) {
+      queueBox.replaceChildren();
+      status.replaceChildren(el('span', err.message, 'error'));
+    }
+  }
+
+  /** The section text with each placeholder of a mention marked; the clear name (while unconfirmed) in its tooltip. */
+  function sectionText(text, mentions) {
+    const frag = document.createDocumentFragment();
+    let at = 0;
+    for (const m of [...mentions].sort((a, b) => a.start - b.start)) {
+      if (m.start < at) continue;
+      frag.append(document.createTextNode(text.slice(at, m.start)));
+      const mark = el('mark', text.slice(m.start, m.end));
+      mark.title = m.original ? `${m.original} (non confirmé)` : 'confirmé';
+      frag.append(mark);
+      at = m.end;
+    }
+    frag.append(document.createTextNode(text.slice(at)));
+    return frag;
+  }
+
+  async function loadDecision(id) {
+    status.textContent = 'Chargement de la décision…';
+    try {
+      const d = await api(`/api/decisions/${id}`);
+      status.textContent = '';
+      const parts = [el('h2', d.title), el('p', `id ${d.id} · statut ${d.status} · détection ${d.anonymisationStatus} · extraction ${d.extractionStatus}`, 'meta')];
+      if (d.openReports) parts.push(el('div', `${d.openReports} signalement(s) en attente : la décision a été retirée. Lire les signalements dans la base, corriger, puis republier.`, 'notice'));
+      if (d.pendingEmbeddings) parts.push(el('div', `${d.pendingEmbeddings} section(s) en cours de recalcul : la publication attendra.`, 'notice'));
+
+      parts.push(el('h2', '1. Métadonnées'));
+      const metaRows = [
+        ['Juridiction', d.court], ['Chambre', d.chamber], ['Numéro', d.caseNumber], ['Date', d.decisionDate],
+        ['Pays', d.country], ['Matière', d.subject], ['Solution', d.outcome], ['Résumé (chapeau)', d.headnote],
+      ].map(([k, v]) => { const tr = el('tr'); tr.append(el('th', k), el('td', v ?? '— (vide)')); return tr; });
+      parts.push(table(['Champ', 'Valeur'], metaRows));
+
+      parts.push(el('h2', `2. Noms (${d.unconfirmedMentions} à confirmer sur ${d.mentions.length})`));
+      const mentionRows = d.mentions.map((m) => {
+        const tr = el('tr');
+        tr.append(el('td', m.placeholder), el('td', m.original ?? 'confirmé', m.original ? 'clear' : 'meta'),
+          el('td', m.segment), el('td', m.context), el('td', m.source), el('td', m.id, 'meta'));
+        return tr;
+      });
+      parts.push(table(['Lettre', 'Nom en clair', 'Section', 'Contexte', 'Trouvé par', 'id (pour PATCH)'], mentionRows));
+
+      parts.push(el('h2', `3. Articles cités (${d.citations.length})`));
+      const citationRows = d.citations.map((c) => {
+        const tr = el('tr');
+        tr.append(el('td', c.rawText), el('td', c.actCode ? `${c.actCode} ${c.actVersion ?? '(version ?)'}` : 'non résolu'),
+          el('td', c.articleRef), el('td', c.confidence), el('td', c.segment));
+        return tr;
+      });
+      parts.push(table(['Tel qu\'écrit', 'Acte et version', 'Article', 'Confiance', 'Section'], citationRows));
+
+      parts.push(el('h2', '4. Texte intégral'));
+      if (d.caption) {
+        const cap = el('div', undefined, 'section');
+        cap.append(el('h3', 'en-tête (effacé à la publication)'), sectionText(d.caption, d.mentions.filter((m) => m.segment === 'caption')));
+        parts.push(cap);
+      }
+      for (const s of d.sections) {
+        const label = s.part > 0 ? `${s.ref} (part ${s.part + 1})` : s.ref;
+        const box = el('div', undefined, 'section');
+        box.append(el('h3', label), sectionText(s.text, d.mentions.filter((m) => m.segment === label)));
+        parts.push(box);
+      }
+      const back = el('button', '← Retour à la file', 'plain');
+      back.type = 'button';
+      back.addEventListener('click', loadQueue);
+      viewBox.replaceChildren(back, ...parts);
+      queueBox.replaceChildren();
+      window.scrollTo(0, 0);
+    } catch (err) {
+      status.replaceChildren(el('span', err.message, 'error'));
+    }
+  }
+
+  document.getElementById('login').addEventListener('submit', (event) => {
+    event.preventDefault();
+    if (keyInput.value.trim()) sessionStorage.setItem(KEY, keyInput.value.trim());
+    keyInput.value = '';
+    loadQueue();
+  });
+  document.getElementById('logout').addEventListener('click', () => {
+    sessionStorage.removeItem(KEY);
+    queueBox.replaceChildren();
+    viewBox.replaceChildren();
+    status.textContent = 'Clé oubliée.';
+  });
+  if (sessionStorage.getItem(KEY)) loadQueue();
+</script>
+</body>
+</html>

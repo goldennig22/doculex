@@ -24,6 +24,13 @@ const EnvSchema = z.object({
   LLM_FALLBACK_MODEL: z.string(),
   MIN_SIMILARITY: z.coerce.number(),
   TRUST_PROXY: z.string().optional(), // address of the reverse proxy as the app sees it (the Docker gateway in production)
+  // Where a report on a decision is announced: the text is POSTed as the body (an ntfy topic URL works as is).
+  // Treat it as a secret: an ntfy topic is readable by anyone who knows its name.
+  NOTIFY_URL: z.url().optional(),
+}).refine((e) => e.NODE_ENV !== 'production' || e.NOTIFY_URL !== undefined, {
+  // A takedown nobody hears about leaves a decision offline for good: refuse to boot without it
+  message: 'NOTIFY_URL is required in production (reports on decisions are sent there)',
+  path: ['NOTIFY_URL'],
 });
 
 export const env = EnvSchema.parse(process.env);

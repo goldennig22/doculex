@@ -1,0 +1,166 @@
+◇ injected env (0) from .env
+eval-answers  questions=62  MIN_SIMILARITY=0.6  models=claude-haiku-5-5 → gpt-6-luna → gemini-3.8-flash
+
+CORRECT   #1   fr IN  expects 2,6,7,8  cites 2,7,59  retrieved=yes  top=0.738  claude-haiku-5-5  6013ms  $0.00075
+CORRECT   #2   en IN  expects 60  cites 60,60,60,68  retrieved=yes  top=0.703  claude-haiku-5-5  5189ms  $0.00071
+CORRECT   #3   fr IN  expects 44  cites 44  retrieved=yes  top=0.764  claude-haiku-5-5  3082ms  $0.00048
+CORRECT   #4   en IN  expects 30  cites 30,30,30  retrieved=yes  top=0.739  claude-haiku-5-5  6756ms  $0.00100
+CORRECT   #5   fr IN  expects 44  cites 44,44,44,44,44  retrieved=yes  top=0.800  claude-haiku-5-5  3543ms  $0.00063
+CORRECT   #6   en IN  expects 59  cites 59,59  retrieved=yes  top=0.761  claude-haiku-5-5  2750ms  $0.00043
+CORRECT   #7   fr IN  expects 7  cites 7  retrieved=yes  top=0.773  claude-haiku-5-5  2555ms  $0.00032
+CORRECT   #8   en IN  expects 7  cites 7  retrieved=yes  top=0.663  claude-haiku-5-5  2533ms  $0.00033
+CORRECT   #9   fr IN  expects 181,374,375  cites 375,375,181  retrieved=yes  top=0.686  claude-haiku-5-5  7376ms  $0.00094
+CORRECT   #10  en IN  expects 311  cites 311  retrieved=yes  top=0.739  claude-haiku-5-5  2546ms  $0.00032
+CORRECT   #11  fr IN  expects 13  cites 13,13  retrieved=yes  top=0.746  claude-haiku-5-5  4979ms  $0.00084
+CORRECT   #12  en IN  expects 28  cites 28  retrieved=yes  top=0.741  claude-haiku-5-5  2590ms  $0.00026
+CORRECT   #13  fr IN  expects 161,165  cites 161,161,165,169  retrieved=yes  top=0.688  claude-haiku-5-5  3630ms  $0.00051
+REFUSED   #14  en OUT stopped=llm  top=0.652  claude-haiku-5-5  1905ms  $0.00024
+REFUSED   #15  fr OUT stopped=threshold  top=0.591  -  455ms  $?
+CORRECT   #16  fr IN  expects 45,47,63  cites 63,47,45  retrieved=yes  top=0.710  claude-haiku-5-5  2769ms  $0.00048
+MISSED    #17  en IN  expects 45,47,63  cites -  retrieved=no  top=0.620  claude-haiku-5-5  2580ms  $0.00030
+CORRECT   #18  fr IN  expects 18  cites 18  retrieved=yes  top=0.788  claude-haiku-5-5  2179ms  $0.00022
+CORRECT   #19  fr IN  expects 9  cites 9,9,8  retrieved=yes  top=0.773  claude-haiku-5-5  2797ms  $0.00041
+CORRECT   #20  fr IN  expects 10  cites 10  retrieved=yes  top=0.751  claude-haiku-5-5  2628ms  $0.00041
+CORRECT   #21  en IN  expects 311  cites 311  retrieved=yes  top=0.721  claude-haiku-5-5  2263ms  $0.00029
+CORRECT   #22  en IN  expects 25  cites 25  retrieved=yes  top=0.728  claude-haiku-5-5  2226ms  $0.00026
+CORRECT   #23  fr IN  expects 28  cites 28  retrieved=yes  top=0.721  claude-haiku-5-5  2310ms  $0.00027
+CORRECT   #24  en IN  expects 374,375  cites 375,375  retrieved=yes  top=0.728  claude-haiku-5-5  2607ms  $0.00037
+CORRECT   #25  en IN  expects 16  cites 16  retrieved=yes  top=0.732  claude-haiku-5-5  2552ms  $0.00030
+REFUSED   #26  fr OUT stopped=threshold  top=0.600  -  468ms  $?
+REFUSED   #27  en OUT stopped=threshold  top=0.592  -  443ms  $?
+REFUSED   #28  fr OUT stopped=llm  top=0.660  claude-haiku-5-5  2523ms  $0.00033
+REFUSED   #29  en OUT stopped=llm  top=0.615  claude-haiku-5-5  1941ms  $0.00026
+REFUSED   #30  fr OUT stopped=llm  top=0.603  claude-haiku-5-5  2102ms  $0.00026
+REFUSED   #31  en OUT stopped=llm  top=0.626  claude-haiku-5-5  1889ms  $0.00024
+CORRECT   #32  fr IN  expects 135  cites 135,136,137  retrieved=yes  top=0.719  claude-haiku-5-5  3200ms  $0.00038
+CORRECT   #33  en IN  expects 123  cites 123  retrieved=yes  top=0.677  claude-haiku-5-5  2338ms  $0.00033
+CORRECT   #34  fr IN  expects 258  cites 258  retrieved=yes  top=0.820  claude-haiku-5-5  2382ms  $0.00030
+CORRECT   #35  en IN  expects 31  cites 31,31  retrieved=yes  top=0.782  claude-haiku-5-5  2580ms  $0.00042
+CORRECT   #36  fr IN  expects 387  cites 387,387,824  retrieved=yes  top=0.670  claude-haiku-5-5  4518ms  $0.00059
+CORRECT   #37  en IN  expects 416  cites 416,829  retrieved=yes  top=0.743  claude-haiku-5-5  5481ms  $0.00059  WRONG LANGUAGE
+WRONG-ART #38  fr IN  expects 309  cites 5,5  retrieved=no  top=0.686  claude-haiku-5-5  4765ms  $0.00054
+CORRECT   #39  en IN  expects 200  cites 200,200,200,200  retrieved=yes  top=0.675  claude-haiku-5-5  3161ms  $0.00036
+CORRECT   #40  fr IN  expects 869  cites 869,869  retrieved=yes  top=0.738  claude-haiku-5-5  2769ms  $0.00040
+REFUSED   #41  fr OUT stopped=llm  top=0.675  claude-haiku-5-5  2681ms  $0.00040
+REFUSED   #42  en OUT stopped=llm  top=0.653  claude-haiku-5-5  2111ms  $0.00028
+ART-ONLY  #43  fr LAW case 191/2015  expects 864  cites 864,867  stopped=-  top=0.648  claude-haiku-5-5  5442ms  $0.00061
+MISSED    #44  en LAW case 002/2015  expects 181,182,183,184,185,186,187,188  cites -  stopped=llm  top=0.689  claude-haiku-5-5  3561ms  $0.00039
+MISSED    #45  fr LAW case 03/2015  expects 13,15  cites -  stopped=llm  top=0.661  claude-haiku-5-5  2113ms  $0.00030
+MISSED    #46  en LAW case 100/2015  expects 15  cites -  stopped=llm  top=0.607  claude-haiku-5-5  2852ms  $0.00031
+MISSED    #47  fr LAW case 189/2015  expects 1  cites -  stopped=llm  top=0.678  claude-haiku-5-5  3019ms  $0.00033
+MISSED    #48  en LAW case 009/2016  expects 2  cites -  stopped=threshold  top=0.576  -  462ms  $?
+MISSED    #49  fr LAW case 190/2015  expects 157  cites -  stopped=llm  top=0.695  claude-haiku-5-5  3231ms  $0.00047
+ART-ONLY  #50  en LAW case 101/2015  expects 166,169  cites 166  stopped=-  top=0.707  claude-haiku-5-5  4443ms  $0.00053
+ART-ONLY  #51  fr LAW case 006/2016  expects 61  cites 61,62  stopped=-  top=0.694  claude-haiku-5-5  6742ms  $0.00082
+ART-ONLY  #52  en LAW case 004/2016  expects 300,301  cites 300,301  stopped=-  top=0.680  claude-haiku-5-5  4301ms  $0.00051
+MISSED    #53  fr LAW case 099/2015  expects 254  cites -  stopped=llm  top=0.762  claude-haiku-5-5  4091ms  $0.00052
+ART-ONLY  #54  en LAW case 096/2015  expects 49  cites 49  stopped=-  top=0.604  claude-haiku-5-5  4035ms  $0.00045
+MISSED    #55  fr LAW case 097/2015  expects -  cites -  stopped=llm  top=0.659  claude-haiku-5-5  3164ms  $0.00037
+MISSED    #56  en LAW case 068/2015  expects -  cites -  stopped=llm  top=0.659  claude-haiku-5-5  2108ms  $0.00026
+MISSED    #57  fr LAW case 188/2015  expects -  cites -  stopped=llm  top=0.668  claude-haiku-5-5  1994ms  $0.00026
+MISSED    #58  en LAW case 084/2015  expects -  cites -  stopped=threshold  top=0.598  -  499ms  $?
+MISSED    #59  fr LAW case 070/2015  expects -  cites -  stopped=llm  top=0.642  claude-haiku-5-5  2081ms  $0.00021
+MISSED    #60  en LAW case 008/2015  expects -  cites -  stopped=threshold  top=0.568  -  494ms  $?
+MISSED    #61  fr LAW case 010/2016  expects -  cites -  stopped=llm  top=0.680  claude-haiku-5-5  4197ms  $0.00051
+MISSED    #62  en LAW case 003/2016  expects -  cites -  stopped=threshold  top=0.599  -  493ms  $?
+
+═══ To review (17) ═══
+
+── #17 Within how many days must the sworn statement be completed by a criminal record extract?
+   answer:   (refused at llm)
+   sources:  343, 74, 534, 768, 332
+
+── #38 Une SARL peut-elle être constituée par une seule personne ?
+   expected: Oui : elle peut être constituée par une personne physique ou morale, ou par plusieurs (Art. 309).
+   answer:   Selon l'article 5 de l'Acte uniforme, une société commerciale peut aussi être constituée par une seule personne, appelée « associé unique », sur la base d'un écrit. Les sources ne mentionnent pas expressément la SARL : la réponse repose donc sur le fait que cette règle vise les sociétés commerciales en général. Il faut vérifier les dispositions spécifiques à la SARL dans l'Acte uniforme, qui ne figurent pas dans les sources fournies.
+   cites:    art. 5 p.18-18: "A commercial company may also be formed, as provided by this Uniform Act, by a single person,"
+   cites:    art. 5 p.18-18: "on the basis of a written document."
+   sources:  5, 558, 49, 560, 559
+
+── #44 According to the CCJA, can a company formed under national law convert into a company form provided by the OHADA Uniform Act on commercial companies?
+   expected: Yes (Opinion no. 002/2015): converting from a national form to a uniform-act form is possible, the AUSCGIE applying alone since its entry into force (arts 181 to 188); a mere change of acronym is not a conversion when the features of the form are identical.
+   answer:   (refused at llm)
+   sources:  181, 908, 99, 182, 374
+
+── #45 Selon la CCJA, un commissaire aux comptes peut-il certifier des états financiers établis selon le SYSCOA révisé de l'UEMOA plutôt que selon le référentiel comptable OHADA ?
+   expected: Non (avis n° 03/2015) : le système comptable OHADA est le seul applicable dans les États parties, tout autre référentiel est dépourvu de valeur juridique, et le commissaire aux comptes doit refuser la certification. Articles liés : obligation de tenir les livres et d'établir les états financiers selon l'Acte uniforme comptable.
+   answer:   (refused at llm)
+   sources:  696, 85, 137, 695, 376
+
+── #46 Can a court of appeal admit an appeal lodged out of time against a judgment on an objection to an order to pay, because its First President granted relief from the time bar?
+   expected: No (judgment no. 100/2015): the 30-day appeal period of art. 15 is not covered by the reference to national law, which provides no relief from the time bar; the CCJA quashed the judgment and declared the appeal inadmissible.
+   answer:   (refused at llm)
+   sources:  734, 15, 333, 172, 26
+
+── #47 Un relevé de compte bancaire établi unilatéralement par la banque suffit-il à fonder une injonction de payer ?
+   expected: Non (arrêt n° 189/2015) : l'injonction de payer suppose une créance certaine, liquide et exigible, et le seul relevé d'un compte courant ne saurait en tenir lieu ; la CCJA casse et rétracte l'ordonnance.
+   answer:   (refused at llm)
+   sources:  2, 7, 6, 13, 5
+
+── #48 Can a court of appeal set aside an order to pay based on accepted bills of exchange by calling the debt doubtful, without showing why the bills are invalid?
+   expected: No (judgment no. 009/2016): the CCJA quashed for insufficient reasons under art. 2; on the merits, a bill of exchange is a formal instrument and defences drawn from the underlying relationship cannot be raised against it.
+   answer:   (refused at threshold)
+   sources:  (none: stopped before the LLM)
+
+── #49 L'omission de la date dans un acte de saisie-attribution entraîne-t-elle sa nullité ?
+   expected: Oui (arrêt n° 190/2015) : l'indication de la date est une condition de validité de l'acte de saisie-attribution (art. 157 al. 2) et son défaut entraîne la nullité ; pourvoi rejeté.
+   answer:   (refused at llm)
+   sources:  157, 160, 313, 100, 159
+
+── #53 Le commandement aux fins de saisie immobilière doit-il obligatoirement être signifié à la personne même du débiteur ?
+   expected: Non (arrêt n° 099/2015) : l'article 254 impose seulement de respecter les formes de signification du droit interne ; la remise de l'exploit au gardien, au domicile du débiteur, n'est pas irrégulière. Piège : c'est la thèse inverse qui avait été retenue par le jugement cassé.
+   answer:   (refused at llm)
+   sources:  254, 94, 255, 258, 101
+
+── #55 La nullité du contrat principal entraîne-t-elle la nullité de la clause compromissoire qu'il contient ?
+   expected: Non (arrêt n° 097/2015) : la convention d'arbitrage est autonome, la nullité du contrat principal est sans effet sur elle ; une demande de mesures conservatoires ne vaut pas renonciation à l'arbitrage. Acte uniforme sur l'arbitrage non ingéré : réponse par la jurisprudence seule.
+   answer:   (refused at llm)
+   sources:  296, 248, 763, 148, 313
+
+── #56 Can a national supreme court decide an appeal in a dispute over abuse of majority and dividends in a public limited company governed by the OHADA companies Act?
+   expected: No (judgment no. 068/2015): such a case falls within the exclusive jurisdiction of the CCJA under art. 14 of the Treaty; the national supreme court judgment is deemed null and void.
+   answer:   (refused at llm)
+   sources:  147, 734, 824, 684, 670
+
+── #57 La CCJA peut-elle connaître d'un pourvoi contre un arrêt correctionnel prononçant une peine d'emprisonnement lorsque le litige touche à un Acte uniforme ?
+   expected: Non (arrêt n° 188/2015) : l'article 14 alinéa 3 du Traité exclut de sa compétence les décisions appliquant des sanctions pénales ; la Cour se déclare incompétente.
+   answer:   (refused at llm)
+   sources:  69, 75, 881, 68, 260
+
+── #58 Can a party ask for the recusal of all the judges of the CCJA?
+   expected: No (judgment no. 084/2015): neither the Treaty nor the Rules of procedure provide for the recusal of a judge, let alone all of them; the application, aimed at a denial of justice, is inadmissible.
+   answer:   (refused at threshold)
+   sources:  (none: stopped before the LLM)
+
+── #59 Un pourvoi qui se borne à critiquer l'appréciation des éléments de la cause par le juge du fond est-il recevable devant la CCJA ?
+   expected: Non (arrêt n° 070/2015) : faute de contenir l'énoncé d'un moyen de cassation au sens de l'article 28 du Règlement de procédure, le pourvoi est irrecevable.
+   answer:   (refused at llm)
+   sources:  333, 26, 172, 293, 300
+
+── #60 What happens when the appellant withdraws its appeal to the CCJA before the appeal has been served on the respondent?
+   expected: Order no. 008/2015: the Court notes the withdrawal, declares the proceedings extinguished and orders the appellant to pay costs (art. 44 of the Rules of procedure), the respondent having made no counterclaim.
+   answer:   (refused at threshold)
+   sources:  (none: stopped before the LLM)
+
+── #61 Que se passe-t-il si le créancier qui a obtenu l'inscription provisoire d'une hypothèque conservatoire n'engage ni l'action en validité ni l'action au fond dans le délai fixé ?
+   expected: L'autorisation ne peut être confirmée et l'ordonnance est rétractée (arrêt n° 010/2016, art. 136 de l'Acte uniforme sur les sûretés, non ingéré).
+   answer:   (refused at llm)
+   sources:  294, 61, 60, 162, 260
+
+── #62 Is a judgment adequately reasoned when, in the same reasoning, it holds the debt to be uncertain and the recovery action inadmissible?
+   expected: No (judgment no. 003/2016): those are contradictory grounds amounting to a lack of reasons, and the judgment is quashed.
+   answer:   (refused at threshold)
+   sources:  (none: stopped before the LLM)
+
+═══ Summary ═══
+In-document     correct 30/32 (94%)  wrong article 1  missed: llm 1  errors 0
+                misses with an expected article in the sources: 0/2 (generation misses; the rest are retrieval misses)
+Out-of-document refused 10/10 (100%): llm 7, threshold 3  answered 0  errors 0
+Case law        cites the decision 0/20  article only 5  wrong article 0  missed: llm 11, threshold 4  errors 0
+By category × language (success = correct / refused / correct or article only): in_document/fr 16/17  in_document/en 14/15  out_of_document/en 5/5  out_of_document/fr 5/5  case_law/fr 2/10  case_law/en 3/10
+Language        35/36 answers in the language of the question
+Latency         mean 2992ms  p50 2607ms  p95 6013ms
+Cost            total $0.02366  mean per LLM call $0.00043  (55 LLM calls, 0 without a price in prices.ts)
+Models          claude-haiku-5-5 55
+
+Wrote eval/results/2026-11-27-answers-62q-aupsrve.json

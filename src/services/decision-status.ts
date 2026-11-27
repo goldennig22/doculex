@@ -5,12 +5,13 @@ export type DecisionStatus = (typeof decisionStatus.enumValues)[number];
 
 /**
  * The only moves a decision can make. draft → in_review is made by the anonymisation job once names are detected
- * (or by a reviewer after detection failed); published and rejected are final.
+ * (or by a reviewer after detection failed). published → in_review is a takedown, made only by a personal-data report
+ * (decision-report.service.ts): PATCH refuses any change to a published decision before it gets here. rejected is final.
  */
 export const TRANSITIONS: Record<DecisionStatus, readonly DecisionStatus[]> = {
   draft: ['in_review'],
   in_review: ['published', 'rejected'],
-  published: [],
+  published: ['in_review'],
   rejected: [],
 };
 

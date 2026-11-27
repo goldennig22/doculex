@@ -1,0 +1,4 @@
+CREATE INDEX "decision_citations_act_article" ON "decision_citations" USING btree ("act_code","article_ref");--> statement-breakpoint
+CREATE INDEX "decisions_published_date" ON "decisions" USING btree ("decision_date" DESC NULLS LAST,"id") WHERE "decisions"."status" = 'published';--> statement-breakpoint
+CREATE INDEX "decisions_published_court" ON "decisions" USING btree ("court","decision_date" DESC NULLS LAST) WHERE "decisions"."status" = 'published';--> statement-breakpoint
+CREATE INDEX "decisions_published_country" ON "decisions" USING btree ("country","decision_date" DESC NULLS LAST) WHERE "decisions"."status" = 'published';

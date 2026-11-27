@@ -5,7 +5,8 @@ import { z } from 'zod';
 import {
   articlePageSchema, articleParamsSchema,
   askResponseSchema, createDecisionSchema, decisionIdSchema, decisionSchema, documentIdSchema, documentSchema,
-  reviewPatchSchema, reviewViewSchema, searchQuestionSchema, uploadDocumentSchema,
+  decisionSearchPageSchema, decisionSearchQuerySchema, decisionStatsSchema,
+  reportDecisionSchema, reportReceivedSchema, reviewPatchSchema, reviewQueueItemSchema, reviewViewSchema, searchAllQuerySchema, searchItemSchema, searchQuestionSchema, uploadDocumentSchema,
 } from '../../utils/schemas';
 
 // ── Envelopes: every response is { status: 'success', data } or { status: 'failed', message, ... } ──
@@ -174,7 +175,11 @@ const reviewExample = {
   subject: "Qualité de commerçant d'un mineur émancipé", outcome: 'rejet', headnote: 'Trois phrases.',
   caption: 'Affaire : Monsieur X (Conseil : Maître Y)\ncontre\nSociété Gamma SARL',
   sections: [{ ref: 'moyen-1', part: 0, text: "Attendu qu'il est fait grief à l'arrêt d'avoir retenu que « X, émancipé par jugement du 3 mars 2014, … » ;" }],
-  unconfirmedMentions: 1, pendingEmbeddings: 0, publishedAt: null,
+  unconfirmedMentions: 1, pendingEmbeddings: 0, publishedAt: null, openReports: 0,
+  citations: [{
+    id: '6a1d2c3b-4e5f-4a7b-8c9d-0e1f2a3b4c5d', segment: 'moyen-1', rawText: "l'article 49 de l'Acte uniforme portant organisation des procédures simplifiées de recouvrement",
+    actCode: 'AUPSRVE', actVersion: '1998', articleRef: '49', method: 'rule', confidence: 'high', reason: null,
+  }],
   mentions: [{
     id: '3f6c1a2b-9d8e-4f70-8a1b-2c3d4e5f6a7b', placeholder: 'X', segment: 'moyen-1', start: 61, end: 62,
     context: "il est fait grief à l'arrêt d'avoir retenu que « X, émancipé par jugement du 3 mars", original: 'TCHOUPO',
@@ -247,6 +252,44 @@ export const publishDecisionRouteSchema = {
   },
 };
 
+export const reviewQueueRouteSchema = {
+  tags: ['decisions'],
+  summary: 'Decisions waiting for review (reviewer key)',
+  description: 'In review, plus drafts whose name detection failed. Reported decisions first, then oldest first. '
+    + '`ownUpload`: uploaded with your key, so someone else must review it.',
+  ...withApiKey,
+  response: {
+    200: success(z.array(reviewQueueItemSchema)),
+    401: unauthorized,
+    403: reviewerOnly,
+  },
+};
+
+export const reportDecisionRouteSchema = {
+  tags: ['decisions'],
+  summary: 'Report a published decision (no key)',
+  description: 'A name left visible, wrong metadata or a wrong text. `personal_data` takes the decision offline at once, '
+    + 'before anyone checks it; it comes back after a reviewer fixes and publishes it again. The other reasons are '
+    + 'reviewed without taking it down. The message and contact are never published. '
+    + 'The answer is the same 202 whatever happens. 404 for any decision that is not published. 5 reports per hour per IP.',
+  params: decisionIdSchema,
+  body: reportDecisionSchema.meta({
+    'x-examples': {
+      name: { summary: 'A name left visible', value: {
+        reason: 'personal_data', message: 'Le nom du gérant apparaît en clair au moyen 1.',
+      } },
+      metadata: { summary: 'A wrong date', value: { reason: 'wrong_metadata', message: "L'arrêt date du 10 mai 2016, pas du 5 octobre." } },
+    },
+  }),
+  response: {
+    202: success(reportReceivedSchema).meta({ examples: [{ status: 'success', data: { reportId: '0b7e3c55-1f2a-4d6e-9a8b-7c6d5e4f3a2b' } }] }),
+    404: decisionNotFound,
+    413: failedExample('Request body is too large'),
+    422: validationFailed('reason', 'Invalid option'),
+    429: failedExample('Rate limit exceeded, retry in 1 hour'),
+  },
+};
+
 const checkSchema = z.object({
   status: z.enum(['up', 'down']),
   latencyMs: z.number(),
@@ -295,11 +338,72 @@ export const articlePageRouteSchema = {
   summary: 'An article with the published decisions that cite it',
   description: 'The article text (every part) and the published decisions citing it, newest first, with court, date and '
     + 'headnote. Links come from the citation job (rules, then an LLM for the references the rules cannot resolve); '
-    + 'low-confidence links wait for a reviewer and are not shown. A statute uploaded without actCode/actVersion has no decisions.',
+    + 'low-confidence links wait for a reviewer and are not shown.',
   params: articleParamsSchema,
   response: {
     200: success(articlePageSchema).meta({ examples: [{ status: 'success', data: articlePageExample }] }),
     404: failed.meta({ examples: [{ status: 'failed', message: 'Article not found' }] }),
     422: validationFailed('articleRef', 'An article number, e.g. "7", "12 bis", "35-1", "1er"'),
+  },
+};
+
+// ── Search ──
+
+// Invented, like the review example: a decision as the public sees it once published (names already replaced)
+const decisionHitExample = {
+  id: '5b1e2c3d-4f5a-4b6c-8d7e-9f0a1b2c3d4e', documentId: '6c2f3d4e-5a6b-4c7d-9e8f-0a1b2c3d4e5f',
+  title: 'CCJA, 1re ch., arrêt n° 045/2019 du 28 février 2019', language: 'fr', court: 'CCJA', country: null,
+  chamber: 'Première chambre', caseNumber: 'Arrêt n° 045/2019', decisionDate: '2019-02-28',
+  subject: "Qualité de commerçant d'un mineur émancipé", outcome: 'rejet',
+  headnote: 'Le mineur émancipé peut avoir la qualité de commerçant. …',
+};
+const snippetExample = "Sur le premier moyen, tiré de la violation de l'article 7 de l'Acte uniforme portant sur le droit commercial général …";
+
+export const searchDecisionsRouteSchema = {
+  tags: ['search'],
+  summary: 'Search published decisions',
+  description: 'Filters combine with AND. With `q`, decisions are ranked by their closest section to the question '
+    + '(a decision whose case number is in `q` comes first); without it, newest first. `q` orders the matching decisions '
+    + 'and never removes one: `total` counts every published decision matching the filters. A page past the end is 200 '
+    + 'with no items. Drafts and decisions in review never appear. 60 requests per minute per IP.',
+  querystring: decisionSearchQuerySchema,
+  response: {
+    200: success(decisionSearchPageSchema).meta({ examples: [{ status: 'success', data: {
+      items: [{ ...decisionHitExample, match: { similarity: 0.71, section: 'moyen-1', snippet: snippetExample, caseNumber: false } }],
+      page: 1, limit: 20, total: 1, totalPages: 1,
+    } }] }),
+    422: validationFailed('act', 'article and version need act'),
+    429: failedExample('Rate limit exceeded, retry in 1 minute'),
+  },
+};
+
+export const searchAllRouteSchema = {
+  tags: ['search'],
+  summary: 'Search articles and published decisions in one list',
+  description: 'One list for one search box, each item with its `type`. Ordered by similarity to `q` (the same model '
+    + 'scores both, so the scores compare); a decision whose case number is in `q` comes first. 60 requests per minute per IP.',
+  querystring: searchAllQuerySchema,
+  response: {
+    200: success(z.array(searchItemSchema)).meta({ examples: [{ status: 'success', data: [
+      { type: 'article', similarity: 0.78, documentId: documentExample.id, documentTitle: AUDCG, articleRef: '7', pageStart: 3,
+        snippet: "Le mineur, sauf s'il est émancipé, ne peut avoir la qualité de commerçant ni effectuer des actes de commerce." },
+      { type: 'decision', similarity: 0.71, ...decisionHitExample, section: 'moyen-1', snippet: snippetExample },
+    ] }] }),
+    422: validationFailed('q', 'Too small: expected string to have >=1 characters'),
+    429: failedExample('Rate limit exceeded, retry in 1 minute'),
+  },
+};
+
+export const decisionStatsRouteSchema = {
+  tags: ['search'],
+  summary: 'Published decisions by court, country and year',
+  description: 'Counts for the search filters. The court values are the ones GET /api/decisions?court= expects.',
+  response: {
+    200: success(decisionStatsSchema).meta({ examples: [{ status: 'success', data: {
+      total: 3,
+      byCourt: [{ court: 'CCJA', count: 2 }, { court: 'Cour suprême du Cameroun', count: 1 }],
+      byCountry: [{ country: null, count: 2 }, { country: 'CM', count: 1 }],
+      byYear: [{ year: 2021, count: 1 }, { year: 2019, count: 2 }],
+    } }] }),
   },
 };

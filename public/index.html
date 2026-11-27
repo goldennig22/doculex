@@ -35,6 +35,21 @@
   .notice { border-radius: 8px; padding: 1rem 1.1rem; background: var(--warn-bg); color: var(--warn); }
   .notice strong { display: block; margin-bottom: .25rem; }
   .error { color: var(--err); }
+  h2 { font-size: 1.25rem; margin: 3rem 0 .25rem; }
+  .muted-title { color: var(--muted); font-weight: 400; }
+  select, input { font: inherit; color: inherit; background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: .45rem .6rem; }
+  select:focus, input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  select option { background: var(--bg); color: var(--fg); }
+  #caselaw-result { margin-top: 1.5rem; display: grid; gap: .75rem; }
+  #caselaw-result:empty { display: none; }
+  .decision { border: 1px solid var(--line); border-radius: 8px; padding: .8rem 1rem; }
+  .decision h3 { font-size: 1rem; margin: 0 0 .2rem; }
+  .decision p { margin: .4rem 0 0; }
+  .report { margin-top: .6rem; border: 0; padding: 0; }
+  .report summary { color: var(--muted); font-weight: 400; font-size: .85rem; }
+  .report form { margin-top: .5rem; }
+  .report textarea { min-height: 4rem; }
+  .report button[type=submit] { align-self: flex-start; }
   footer { margin-top: 3rem; color: var(--muted); font-size: .85rem; }
   footer a { color: inherit; }
 </style>
@@ -58,9 +73,33 @@
 
   <section id="result" aria-live="polite"></section>
 
+  <h2>Case law of an article <span class="muted-title">· Jurisprudence d'un article</span></h2>
+  <p class="lede">Published court decisions that cite an article, newest first. Names of natural persons are replaced, and every decision was reviewed by a person before publication.</p>
+
+  <form id="caselaw">
+    <div class="row">
+      <label class="meta" for="act">Act</label>
+      <select id="act" name="act" required>
+        <option value="AUPSRVE">AUPSRVE: recovery and enforcement</option>
+        <option value="AUDCG">AUDCG: general commercial law</option>
+        <option value="AUSCGIE">AUSCGIE: commercial companies</option>
+        <option value="AUS">AUS: securities</option>
+        <option value="AUPC">AUPC: insolvency</option>
+        <option value="AUA">AUA: arbitration</option>
+        <option value="RP_CCJA">CCJA rules of procedure</option>
+        <option value="TRAITE">OHADA Treaty</option>
+      </select>
+      <label class="meta" for="article">Article</label>
+      <input id="article" name="article" required maxlength="30" size="8" placeholder="49" inputmode="text">
+      <button type="submit">Find decisions</button>
+    </div>
+  </form>
+
+  <section id="caselaw-result" aria-live="polite"></section>
+
   <footer>
     Covers two Uniform Acts: general commercial law (2010, French) and commercial companies (1997, English).
-    A research aid, not legal advice. · <a href="/docs">API docs</a>
+    A research aid, not legal advice. Decisions are anonymised; a name left visible can be reported on each decision and takes it offline at once. · <a href="/docs">API docs</a>
   </footer>
 </main>
 
@@ -163,6 +202,104 @@
   for (const button of document.querySelectorAll('.example')) {
     button.addEventListener('click', () => { input.value = button.textContent; form.requestSubmit(); });
   }
+
+  // ── Case law of an article: GET /api/decisions?act=&article= (published decisions only), and reports ──
+  // Same rule as above: decision text (headnotes, titles) only ever goes through textContent.
+  const caselawForm = document.getElementById('caselaw');
+  const caselawResult = document.getElementById('caselaw-result');
+  const OUTCOMES = { cassation: 'quashed (cassation)', rejet: 'appeal dismissed (rejet)', irrecevabilite: 'inadmissible' };
+
+  async function findDecisions(act, article) {
+    const params = new URLSearchParams({ act, article, limit: '50' });
+    try {
+      const res = await fetch(`/api/decisions?${params}`);
+      const body = await res.json().catch(() => null);
+      if (res.status === 429) return { kind: 'rateLimited' };
+      if (res.status === 422) return { kind: 'invalid', message: firstFieldError(body) };
+      if (!res.ok || body?.status !== 'success') return { kind: 'error', requestId: body?.requestId };
+      return { kind: 'found', page: body.data };
+    } catch {
+      return { kind: 'error' };
+    }
+  }
+
+  function reportForm(decisionId) {
+    const details = el('details', undefined, 'report');
+    details.append(el('summary', 'Report a problem (a visible name, a wrong date…)'));
+    const f = el('form');
+    const reason = el('select');
+    for (const [value, label] of [
+      ['personal_data', 'A person\'s name or identifying detail is visible: take it offline'],
+      ['wrong_metadata', 'Wrong court, date, number or outcome'],
+      ['wrong_text', 'Wrong or truncated text, or a wrong headnote'],
+      ['other', 'Something else'],
+    ]) { const o = el('option', label); o.value = value; reason.append(o); }
+    const message = el('textarea');
+    message.maxLength = 2000;
+    message.placeholder = 'Where is the problem? (optional, at least 10 characters, never published)';
+    const contact = el('input');
+    contact.type = 'email';
+    contact.maxLength = 200;
+    contact.placeholder = 'Your email, if you want an answer (optional)';
+    const send = el('button', 'Send the report');
+    send.type = 'submit';
+    const status = el('p', undefined, 'meta');
+    f.append(reason, message, contact, send, status);
+    f.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const payload = { reason: reason.value };
+      if (message.value.trim()) payload.message = message.value.trim();
+      if (contact.value.trim()) payload.contact = contact.value.trim();
+      send.disabled = true;
+      let res;
+      try {
+        res = await fetch(`/api/decisions/${decisionId}/report`, {
+          method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
+        });
+      } catch { res = null; }
+      const body = res ? await res.json().catch(() => null) : null;
+      if (res?.status === 202) {
+        f.replaceChildren(el('p', 'Thank you. The report was received and will be reviewed.', 'meta'));
+        return;
+      }
+      send.disabled = false;
+      status.className = 'error';
+      status.textContent = res?.status === 429 ? 'Too many reports from your connection; try again in an hour.'
+        : res?.status === 422 ? firstFieldError(body)
+        : 'The report could not be sent. Please try again.';
+    });
+    details.append(f);
+    return details;
+  }
+
+  function decisionElement(d) {
+    const box = el('article', undefined, 'decision');
+    box.append(el('h3', d.title));
+    const facts = [d.court, d.decisionDate, d.caseNumber, d.outcome ? (OUTCOMES[d.outcome] ?? d.outcome) : null].filter(Boolean);
+    box.append(el('div', facts.join(' · '), 'meta'));
+    if (d.headnote) box.append(el('p', d.headnote));
+    box.append(reportForm(d.id));
+    return box;
+  }
+
+  caselawForm.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const act = caselawForm.act.value;
+    const article = caselawForm.article.value.trim();
+    caselawResult.replaceChildren(el('p', 'Searching…', 'meta'));
+    const r = await findDecisions(act, article);
+    caselawResult.replaceChildren();
+    if (r.kind === 'rateLimited') return caselawResult.append(notice('Too many searches', 'Try again in a minute.'));
+    if (r.kind === 'invalid') return caselawResult.append(el('p', r.message, 'error'));
+    if (r.kind === 'error') return caselawResult.append(el('p', 'Something went wrong on our side. Please try again.' + (r.requestId ? ` (reference: ${r.requestId})` : ''), 'error'));
+    const { items, total } = r.page;
+    if (items.length === 0) {
+      return caselawResult.append(notice('No published decision cites this article yet',
+        `Check the article number, or try another act. DocuLex is still adding decisions.`));
+    }
+    caselawResult.append(el('p', `${total} published decision(s) cite ${act} art. ${article}` + (total > items.length ? ` (the ${items.length} most recent shown)` : ''), 'meta'));
+    for (const d of items) caselawResult.append(decisionElement(d));
+  });
 </script>
 </body>
 </html>

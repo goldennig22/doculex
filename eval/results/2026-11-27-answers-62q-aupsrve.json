@@ -1,0 +1,999 @@
+{
+  "ranAt": "2026-11-27T13:23:32.646Z",
+  "minSimilarity": 0.6,
+  "summary": {
+    "inDocument": {
+      "total": 32,
+      "correct": 30,
+      "wrongArticle": 1,
+      "missedBy": {
+        "llm": 1
+      },
+      "errors": 0,
+      "missesWithArticleRetrieved": 0,
+      "misses": 2
+    },
+    "outOfDocument": {
+      "total": 10,
+      "refused": 10,
+      "refusedBy": {
+        "llm": 7,
+        "threshold": 3
+      },
+      "answered": 0,
+      "errors": 0
+    },
+    "caseLaw": {
+      "total": 20,
+      "correct": 0,
+      "articleOnly": 5,
+      "wrongArticle": 0,
+      "missedBy": {
+        "llm": 11,
+        "threshold": 4
+      },
+      "errors": 0
+    },
+    "byCategoryLanguage": {
+      "in_document/fr": {
+        "ok": 16,
+        "total": 17
+      },
+      "in_document/en": {
+        "ok": 14,
+        "total": 15
+      },
+      "out_of_document/en": {
+        "ok": 5,
+        "total": 5
+      },
+      "out_of_document/fr": {
+        "ok": 5,
+        "total": 5
+      },
+      "case_law/fr": {
+        "ok": 2,
+        "total": 10
+      },
+      "case_law/en": {
+        "ok": 3,
+        "total": 10
+      }
+    },
+    "language": {
+      "ok": 35,
+      "answered": 36
+    },
+    "latencyMs": {
+      "mean": 2992,
+      "p50": 2607,
+      "p95": 6013
+    },
+    "cost": {
+      "totalUsd": 0.023655799999999994,
+      "meanPerLlmCallUsd": 0.00043010545454545446,
+      "llmCalls": 55,
+      "unpricedCalls": 0
+    },
+    "models": {
+      "claude-haiku-5-5": 55
+    }
+  },
+  "grades": [
+    {
+      "id": 1,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "2",
+        "7",
+        "59"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 6013,
+      "costUsd": 0.0007516000000000001
+    },
+    {
+      "id": 2,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "60",
+        "60",
+        "60",
+        "68"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 5189,
+      "costUsd": 0.0007085
+    },
+    {
+      "id": 3,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "44"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3082,
+      "costUsd": 0.0004816
+    },
+    {
+      "id": 4,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "30",
+        "30",
+        "30"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 6756,
+      "costUsd": 0.0010041
+    },
+    {
+      "id": 5,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "44",
+        "44",
+        "44",
+        "44",
+        "44"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3543,
+      "costUsd": 0.0006278
+    },
+    {
+      "id": 6,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "59",
+        "59"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2750,
+      "costUsd": 0.0004307
+    },
+    {
+      "id": 7,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "7"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2555,
+      "costUsd": 0.0003188
+    },
+    {
+      "id": 8,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "7"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2533,
+      "costUsd": 0.000333
+    },
+    {
+      "id": 9,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "375",
+        "375",
+        "181"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 7376,
+      "costUsd": 0.000943
+    },
+    {
+      "id": 10,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "311"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2546,
+      "costUsd": 0.00032320000000000005
+    },
+    {
+      "id": 11,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "13",
+        "13"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4979,
+      "costUsd": 0.0008379
+    },
+    {
+      "id": 12,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "28"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2590,
+      "costUsd": 0.0002597
+    },
+    {
+      "id": 13,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "161",
+        "161",
+        "165",
+        "169"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3630,
+      "costUsd": 0.0005094
+    },
+    {
+      "id": 14,
+      "category": "out_of_document",
+      "language": "en",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 1905,
+      "costUsd": 0.000245
+    },
+    {
+      "id": 15,
+      "category": "out_of_document",
+      "language": "fr",
+      "verdict": "refused",
+      "stoppedAt": "threshold",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": null,
+      "latencyMs": 455,
+      "costUsd": null
+    },
+    {
+      "id": 16,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "63",
+        "47",
+        "45"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2769,
+      "costUsd": 0.0004838
+    },
+    {
+      "id": 17,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": false,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2580,
+      "costUsd": 0.0003025
+    },
+    {
+      "id": 18,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "18"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2179,
+      "costUsd": 0.000223
+    },
+    {
+      "id": 19,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "9",
+        "9",
+        "8"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2797,
+      "costUsd": 0.0004135
+    },
+    {
+      "id": 20,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "10"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2628,
+      "costUsd": 0.00040730000000000003
+    },
+    {
+      "id": 21,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "311"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2263,
+      "costUsd": 0.0002854
+    },
+    {
+      "id": 22,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "25"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2226,
+      "costUsd": 0.00026470000000000004
+    },
+    {
+      "id": 23,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "28"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2310,
+      "costUsd": 0.0002676
+    },
+    {
+      "id": 24,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "375",
+        "375"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2607,
+      "costUsd": 0.00036730000000000004
+    },
+    {
+      "id": 25,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "16"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2552,
+      "costUsd": 0.00030460000000000003
+    },
+    {
+      "id": 26,
+      "category": "out_of_document",
+      "language": "fr",
+      "verdict": "refused",
+      "stoppedAt": "threshold",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": null,
+      "latencyMs": 468,
+      "costUsd": null
+    },
+    {
+      "id": 27,
+      "category": "out_of_document",
+      "language": "en",
+      "verdict": "refused",
+      "stoppedAt": "threshold",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": null,
+      "latencyMs": 443,
+      "costUsd": null
+    },
+    {
+      "id": 28,
+      "category": "out_of_document",
+      "language": "fr",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2523,
+      "costUsd": 0.00032510000000000004
+    },
+    {
+      "id": 29,
+      "category": "out_of_document",
+      "language": "en",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 1941,
+      "costUsd": 0.00026389999999999996
+    },
+    {
+      "id": 30,
+      "category": "out_of_document",
+      "language": "fr",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2102,
+      "costUsd": 0.0002636
+    },
+    {
+      "id": 31,
+      "category": "out_of_document",
+      "language": "en",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 1889,
+      "costUsd": 0.00023660000000000003
+    },
+    {
+      "id": 32,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "135",
+        "136",
+        "137"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3200,
+      "costUsd": 0.000385
+    },
+    {
+      "id": 33,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "123"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2338,
+      "costUsd": 0.0003345
+    },
+    {
+      "id": 34,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "258"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2382,
+      "costUsd": 0.0003015
+    },
+    {
+      "id": 35,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "31",
+        "31"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2580,
+      "costUsd": 0.0004195
+    },
+    {
+      "id": 36,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "387",
+        "387",
+        "824"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4518,
+      "costUsd": 0.0005927
+    },
+    {
+      "id": 37,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": false,
+      "citedArticles": [
+        "416",
+        "829"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 5481,
+      "costUsd": 0.0005945
+    },
+    {
+      "id": 38,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "wrong_article",
+      "stoppedAt": null,
+      "retrieved": false,
+      "languageOk": true,
+      "citedArticles": [
+        "5",
+        "5"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4765,
+      "costUsd": 0.0005432999999999999
+    },
+    {
+      "id": 39,
+      "category": "in_document",
+      "language": "en",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "200",
+        "200",
+        "200",
+        "200"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3161,
+      "costUsd": 0.00036320000000000005
+    },
+    {
+      "id": 40,
+      "category": "in_document",
+      "language": "fr",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "869",
+        "869"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2769,
+      "costUsd": 0.0004025
+    },
+    {
+      "id": 41,
+      "category": "out_of_document",
+      "language": "fr",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2681,
+      "costUsd": 0.00040270000000000003
+    },
+    {
+      "id": 42,
+      "category": "out_of_document",
+      "language": "en",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2111,
+      "costUsd": 0.0002775
+    },
+    {
+      "id": 43,
+      "category": "case_law",
+      "language": "fr",
+      "verdict": "article_only",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "864",
+        "867"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 5442,
+      "costUsd": 0.000615
+    },
+    {
+      "id": 44,
+      "category": "case_law",
+      "language": "en",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": true,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3561,
+      "costUsd": 0.0003915
+    },
+    {
+      "id": 45,
+      "category": "case_law",
+      "language": "fr",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": false,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2113,
+      "costUsd": 0.00029590000000000004
+    },
+    {
+      "id": 46,
+      "category": "case_law",
+      "language": "en",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": true,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2852,
+      "costUsd": 0.00030639999999999997
+    },
+    {
+      "id": 47,
+      "category": "case_law",
+      "language": "fr",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": false,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3019,
+      "costUsd": 0.0003308
+    },
+    {
+      "id": 48,
+      "category": "case_law",
+      "language": "en",
+      "verdict": "missed",
+      "stoppedAt": "threshold",
+      "retrieved": false,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": null,
+      "latencyMs": 462,
+      "costUsd": null
+    },
+    {
+      "id": 49,
+      "category": "case_law",
+      "language": "fr",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": true,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3231,
+      "costUsd": 0.00047320000000000006
+    },
+    {
+      "id": 50,
+      "category": "case_law",
+      "language": "en",
+      "verdict": "article_only",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "166"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4443,
+      "costUsd": 0.000526
+    },
+    {
+      "id": 51,
+      "category": "case_law",
+      "language": "fr",
+      "verdict": "article_only",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "61",
+        "62"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 6742,
+      "costUsd": 0.0008202000000000001
+    },
+    {
+      "id": 52,
+      "category": "case_law",
+      "language": "en",
+      "verdict": "article_only",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "300",
+        "301"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4301,
+      "costUsd": 0.0005143999999999999
+    },
+    {
+      "id": 53,
+      "category": "case_law",
+      "language": "fr",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": true,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4091,
+      "costUsd": 0.0005177000000000001
+    },
+    {
+      "id": 54,
+      "category": "case_law",
+      "language": "en",
+      "verdict": "article_only",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "49"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4035,
+      "costUsd": 0.00045
+    },
+    {
+      "id": 55,
+      "category": "case_law",
+      "language": "fr",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3164,
+      "costUsd": 0.000372
+    },
+    {
+      "id": 56,
+      "category": "case_law",
+      "language": "en",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2108,
+      "costUsd": 0.0002575
+    },
+    {
+      "id": 57,
+      "category": "case_law",
+      "language": "fr",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 1994,
+      "costUsd": 0.0002628
+    },
+    {
+      "id": 58,
+      "category": "case_law",
+      "language": "en",
+      "verdict": "missed",
+      "stoppedAt": "threshold",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": null,
+      "latencyMs": 499,
+      "costUsd": null
+    },
+    {
+      "id": 59,
+      "category": "case_law",
+      "language": "fr",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2081,
+      "costUsd": 0.0002139
+    },
+    {
+      "id": 60,
+      "category": "case_law",
+      "language": "en",
+      "verdict": "missed",
+      "stoppedAt": "threshold",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": null,
+      "latencyMs": 494,
+      "costUsd": null
+    },
+    {
+      "id": 61,
+      "category": "case_law",
+      "language": "fr",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4197,
+      "costUsd": 0.0005084
+    },
+    {
+      "id": 62,
+      "category": "case_law",
+      "language": "en",
+      "verdict": "missed",
+      "stoppedAt": "threshold",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": null,
+      "latencyMs": 493,
+      "costUsd": null
+    }
+  ]
+}

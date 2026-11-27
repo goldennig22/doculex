@@ -11,6 +11,7 @@ export type QueueHandlers = {
   anonymisationFailed: (decisionId: string) => Promise<unknown>;
   embedDecision: (documentId: string) => Promise<unknown>;
   linkCitations: (decisionId: string, signal: AbortSignal) => Promise<unknown>;
+  notifyReport: (reportId: string) => Promise<unknown>;
 };
 
 // Background jobs, in the same Postgres as the data (schema "pgboss", created by start()).
@@ -27,9 +28,13 @@ export const EMBED_DECISION = 'embed-decision';
 /** Finds the articles a decision cites and links them to the statutes (rules, then the LLM for the leftovers). */
 export const LINK_CITATIONS = 'link-citations';
 
+/** Tells the maintainer that a decision was reported (and maybe taken down). */
+export const NOTIFY_REPORT = 'notify-report';
+
 const DecisionJob = z.object({ decisionId: z.uuid() });
 export type ExtractDecisionJob = z.infer<typeof DecisionJob>;
 const EmbedJob = z.object({ documentId: z.uuid() });
+const ReportJob = z.object({ reportId: z.uuid() });
 
 const boss = new PgBoss({ connectionString: env.DATABASE_URL, max: 3, application_name: 'doculex-queue' });
 
@@ -63,6 +68,8 @@ export async function startQueue(handlers: QueueHandlers): Promise<void> {
   // No dead letter: the rules' links are saved before the LLM call, so a job that fails every retry leaves the
   // unresolved references 'low', which is where a reviewer looks anyway
   await boss.createQueue(LINK_CITATIONS, LLM_JOB);
+  // A network call to the notification service: retried for about an hour (30 s doubling, 7 times)
+  await boss.createQueue(NOTIFY_REPORT, { retryLimit: 7, retryDelay: 30, retryBackoff: true, expireInSeconds: 60 });
 
   // The handler's return value is stored as the job's `output` (model, tokens, cost) in pgboss.job
   await boss.work(EXTRACT_DECISION, async ([job]) => {
@@ -95,6 +102,11 @@ export async function startQueue(handlers: QueueHandlers): Promise<void> {
   await boss.work(LINK_CITATIONS, async ([job]) => {
     const { decisionId } = DecisionJob.parse(job.data);
     return handlers.linkCitations(decisionId, job.signal);
+  });
+
+  await boss.work(NOTIFY_REPORT, async ([job]) => {
+    const { reportId } = ReportJob.parse(job.data);
+    return handlers.notifyReport(reportId);
   });
 }
 
@@ -132,4 +144,9 @@ export async function enqueueCitationLinking(decisionId: string, tx: DrizzleTran
 
 export async function enqueueEmbedding(documentId: string, tx?: DrizzleTransactionLike): Promise<string | null> {
   return boss.send(EMBED_DECISION, { documentId }, tx ? { db: fromDrizzle(tx, drizzleSql) } : {});
+}
+
+/** Enqueues the notification of a report, in the transaction that stores it: no report without its notice. */
+export async function enqueueReportNotification(reportId: string, tx: DrizzleTransactionLike): Promise<string | null> {
+  return boss.send(NOTIFY_REPORT, { reportId }, { db: fromDrizzle(tx, drizzleSql) });
 }

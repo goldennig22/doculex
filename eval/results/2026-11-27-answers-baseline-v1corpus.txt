@@ -1,0 +1,68 @@
+◇ injected env (0) from .env
+eval-answers  questions=42  MIN_SIMILARITY=0.6  models=claude-haiku-5-5 → gpt-6-luna → gemini-3.8-flash
+
+CORRECT   #1   fr IN  expects 2,6,7,8  cites 2,7,59  retrieved=yes  top=0.738  claude-haiku-5-5  6291ms  $0.00068
+CORRECT   #2   en IN  expects 60  cites 60,60,68  retrieved=yes  top=0.703  claude-haiku-5-5  5740ms  $0.00077
+CORRECT   #3   fr IN  expects 44  cites 44  retrieved=yes  top=0.764  claude-haiku-5-5  3365ms  $0.00050
+CORRECT   #4   en IN  expects 30  cites 30,30,30,30  retrieved=yes  top=0.739  claude-haiku-5-5  5130ms  $0.00083
+CORRECT   #5   fr IN  expects 44  cites 44,44,44  retrieved=yes  top=0.800  claude-haiku-5-5  6497ms  $0.00098
+CORRECT   #6   en IN  expects 59  cites 59  retrieved=yes  top=0.761  claude-haiku-5-5  2967ms  $0.00039
+CORRECT   #7   fr IN  expects 7  cites 7  retrieved=yes  top=0.773  claude-haiku-5-5  2597ms  $0.00032
+CORRECT   #8   en IN  expects 7  cites 7  retrieved=yes  top=0.663  claude-haiku-5-5  2628ms  $0.00033
+CORRECT   #9   fr IN  expects 181,374,375  cites 375,375,359,359,181  retrieved=yes  top=0.686  claude-haiku-5-5  7626ms  $0.00101
+CORRECT   #10  en IN  expects 311  cites 311  retrieved=yes  top=0.739  claude-haiku-5-5  2681ms  $0.00032
+CORRECT   #11  fr IN  expects 13  cites 13,13  retrieved=yes  top=0.746  claude-haiku-5-5  4649ms  $0.00074
+CORRECT   #12  en IN  expects 28  cites 28  retrieved=yes  top=0.741  claude-haiku-5-5  3064ms  $0.00026
+CORRECT   #13  fr IN  expects 161,165  cites 161,161,165,169  retrieved=yes  top=0.688  claude-haiku-5-5  3595ms  $0.00049
+REFUSED   #14  en OUT stopped=llm  top=0.652  claude-haiku-5-5  2049ms  $0.00024
+REFUSED   #15  fr OUT stopped=threshold  top=0.591  -  481ms  $?
+CORRECT   #16  fr IN  expects 45,47,63  cites 63,47,45  retrieved=yes  top=0.710  claude-haiku-5-5  2889ms  $0.00048
+MISSED    #17  en IN  expects 45,47,63  cites -  retrieved=no  top=0.620  claude-haiku-5-5  2059ms  $0.00023
+CORRECT   #18  fr IN  expects 18  cites 18  retrieved=yes  top=0.788  claude-haiku-5-5  2152ms  $0.00022
+CORRECT   #19  fr IN  expects 9  cites 9,9,8  retrieved=yes  top=0.773  claude-haiku-5-5  4529ms  $0.00064
+CORRECT   #20  fr IN  expects 10  cites 10,10  retrieved=yes  top=0.751  claude-haiku-5-5  3459ms  $0.00040
+CORRECT   #21  en IN  expects 311  cites 311  retrieved=yes  top=0.721  claude-haiku-5-5  2862ms  $0.00029
+CORRECT   #22  en IN  expects 25  cites 25,25  retrieved=yes  top=0.728  claude-haiku-5-5  2423ms  $0.00027
+CORRECT   #23  fr IN  expects 28  cites 28  retrieved=yes  top=0.721  claude-haiku-5-5  2405ms  $0.00026
+CORRECT   #24  en IN  expects 374,375  cites 375  retrieved=yes  top=0.728  claude-haiku-5-5  2610ms  $0.00034
+CORRECT   #25  en IN  expects 16  cites 16  retrieved=yes  top=0.732  claude-haiku-5-5  2698ms  $0.00031
+REFUSED   #26  fr OUT stopped=threshold  top=0.600  -  491ms  $?
+REFUSED   #27  en OUT stopped=threshold  top=0.592  -  485ms  $?
+REFUSED   #28  fr OUT stopped=llm  top=0.660  claude-haiku-5-5  2027ms  $0.00026
+REFUSED   #29  en OUT stopped=llm  top=0.615  claude-haiku-5-5  2027ms  $0.00026
+REFUSED   #30  fr OUT stopped=llm  top=0.603  claude-haiku-5-5  1992ms  $0.00025
+REFUSED   #31  en OUT stopped=llm  top=0.626  claude-haiku-5-5  1973ms  $0.00024
+CORRECT   #32  fr IN  expects 135  cites 135,136,137  retrieved=yes  top=0.719  claude-haiku-5-5  2889ms  $0.00038
+CORRECT   #33  en IN  expects 123  cites 123  retrieved=yes  top=0.677  claude-haiku-5-5  2407ms  $0.00036
+CORRECT   #34  fr IN  expects 258  cites 258  retrieved=yes  top=0.820  claude-haiku-5-5  2498ms  $0.00030
+CORRECT   #35  en IN  expects 31  cites 31,31  retrieved=yes  top=0.782  claude-haiku-5-5  2561ms  $0.00042
+CORRECT   #36  fr IN  expects 387  cites 387,387,824  retrieved=yes  top=0.670  claude-haiku-5-5  4525ms  $0.00060
+CORRECT   #37  en IN  expects 416  cites 416,829  retrieved=yes  top=0.743  claude-haiku-5-5  3043ms  $0.00040
+WRONG-ART #38  fr IN  expects 309  cites 5  retrieved=no  top=0.686  claude-haiku-5-5  4961ms  $0.00062
+CORRECT   #39  en IN  expects 200  cites 200,200,200,200,200  retrieved=yes  top=0.675  claude-haiku-5-5  3190ms  $0.00039
+CORRECT   #40  fr IN  expects 869  cites 869,869  retrieved=yes  top=0.738  claude-haiku-5-5  2823ms  $0.00040
+REFUSED   #41  fr OUT stopped=llm  top=0.675  claude-haiku-5-5  2046ms  $0.00033
+REFUSED   #42  en OUT stopped=llm  top=0.653  claude-haiku-5-5  2041ms  $0.00028
+
+═══ To review (2) ═══
+
+── #17 Within how many days must the sworn statement be completed by a criminal record extract?
+   answer:   (refused at llm)
+   sources:  343, 74, 534, 768, 332
+
+── #38 Une SARL peut-elle être constituée par une seule personne ?
+   expected: Oui : elle peut être constituée par une personne physique ou morale, ou par plusieurs (Art. 309).
+   answer:   Oui, selon l'article 5 de l'Acte uniforme sur les sociétés commerciales, une société commerciale peut être constituée par une seule personne, appelée « associé unique », sur la base d'un écrit. Les sources ne mentionnent pas explicitement la SARL : la règle est énoncée pour les sociétés commerciales en général, et il convient de vérifier les dispositions propres à la SARL.
+   cites:    art. 5 p.18-18: "A commercial company may also be formed, as provided by this Uniform Act, by a single person"
+   sources:  5, 558, 49, 560, 559
+
+═══ Summary ═══
+In-document     correct 30/32 (94%)  wrong article 1  missed: llm 1  errors 0
+                misses with an expected article in the sources: 0/2 (generation misses; the rest are retrieval misses)
+Out-of-document refused 10/10 (100%): llm 7, threshold 3  answered 0  errors 0
+Language        31/31 answers in the language of the question
+Latency         mean 3082ms  p50 2681ms  p95 6291ms
+Cost            total $0.01681  mean per LLM call $0.00043  (39 LLM calls, 0 without a price in prices.ts)
+Models          claude-haiku-5-5 39
+
+Wrote eval/results/2026-11-27-answers-baseline-v1corpus.json

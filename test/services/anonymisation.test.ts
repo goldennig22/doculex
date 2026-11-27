@@ -259,7 +259,7 @@ describe('findLeaks', () => {
 
 describe('status transitions', () => {
   const ALL: DecisionStatus[] = ['draft', 'in_review', 'published', 'rejected'];
-  const LEGAL = new Set(['draft>in_review', 'in_review>published', 'in_review>rejected']);
+  const LEGAL = new Set(['draft>in_review', 'in_review>published', 'in_review>rejected', 'published>in_review']);
 
   it.each(ALL.flatMap((from) => ALL.map((to) => [from, to] as const)))('%s → %s', (from, to) => {
     if (LEGAL.has(`${from}>${to}`)) {
@@ -269,8 +269,8 @@ describe('status transitions', () => {
     }
   });
 
-  it('published and rejected are final', () => {
-    expect(TRANSITIONS.published).toEqual([]);
+  it('rejected is final; published only goes back to in_review (a takedown)', () => {
+    expect(TRANSITIONS.published).toEqual(['in_review']);
     expect(TRANSITIONS.rejected).toEqual([]);
     expect(canTransition('draft', 'published')).toBe(false);
   });

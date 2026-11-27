@@ -20,6 +20,21 @@ export type DecisionView = z.input<typeof decisionSchema>;
 export const decisionPathPrefix = (i: Pick<CreateDecisionInput, 'court' | 'chamber' | 'caseNumber' | 'title'>): string =>
   [i.court, i.chamber, i.caseNumber].filter(Boolean).join(' > ') || i.title;
 
+// Upper bounds on one upload, which every chunk of is embedded (a paid call), 30 times an hour per key.
+// The longest CCJA judgment ingested so far fits easily; 20 MB of text PDF could otherwise be thousands of chunks.
+export const MAX_DECISION_PAGES = 150;
+export const MAX_DECISION_CHUNKS = 200;
+
+/** 422 for a document too long to be one decision. Pages are checked before chunking, chunks before embedding. */
+export function assertDecisionSize({ pageCount, chunkCount }: { pageCount: number; chunkCount?: number }): void {
+  if (pageCount > MAX_DECISION_PAGES) {
+    throw new HttpError(422, `A decision has at most ${MAX_DECISION_PAGES} pages; this file has ${pageCount}`);
+  }
+  if (chunkCount !== undefined && chunkCount > MAX_DECISION_CHUNKS) {
+    throw new HttpError(422, `A decision has at most ${MAX_DECISION_CHUNKS} sections and parts; this one has ${chunkCount}`);
+  }
+}
+
 /**
  * Stores a contributed decision as a DRAFT: document (kind 'decision') + decision row + chunks, in one transaction.
  * The chunks are embedded now, so publishing later is a status change, not an ingest that can fail.
@@ -30,10 +45,12 @@ export const decisionPathPrefix = (i: Pick<CreateDecisionInput, 'court' | 'chamb
  */
 export async function ingestDecision(input: CreateDecisionInput, contributorId: string): Promise<DecisionView> {
   const { pages, pageCount } = await readDecision(input);
+  assertDecisionSize({ pageCount });
   const drafts = chunkDecision(pages, { lang: input.language, pathPrefix: decisionPathPrefix(input) });
   if (drafts.length === 0) {
     throw new HttpError(422, 'No text could be extracted from this decision (a scanned PDF needs OCR, which is not supported yet)');
   }
+  assertDecisionSize({ pageCount, chunkCount: drafts.length }); // before embedding: every chunk is a paid call
   const embeddings = await embedDocuments(drafts.map(embeddingText));
 
   return db.transaction(async (tx) => {

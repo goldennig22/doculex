@@ -1,0 +1,20 @@
+{
+  "_how_to_use": "Questions for the decision search benchmark (src/scripts/bench-decision-search.ts). A first draft by Claude: replace them with what you would really type. Speed and recall need no labels. For the vector vs keyword comparison, fill expectedCaseNumbers with the case numbers of the decisions that answer the question ('Arrêt n° 045/2019' or '45/2019'), read from the decisions themselves.",
+  "questions": [
+    { "id": 1, "q": "injonction de payer : point de départ du délai d'opposition de quinze jours", "expectedCaseNumbers": [] },
+    { "id": 2, "q": "saisie-attribution de créances : contestation hors du délai d'un mois", "expectedCaseNumbers": [] },
+    { "id": 3, "q": "nullité de l'exploit de saisie pour défaut de décompte distinct des sommes réclamées", "expectedCaseNumbers": [] },
+    { "id": 4, "q": "incompétence de la CCJA quand le pourvoi ne soulève aucune question relative à un Acte uniforme", "expectedCaseNumbers": [] },
+    { "id": 5, "q": "irrecevabilité du recours en cassation formé hors délai", "expectedCaseNumbers": [] },
+    { "id": 6, "q": "bail commercial : résiliation pour défaut de paiement des loyers après mise en demeure", "expectedCaseNumbers": [] },
+    { "id": 7, "q": "droit au renouvellement du bail à usage professionnel", "expectedCaseNumbers": [] },
+    { "id": 8, "q": "responsabilité du gérant de SARL envers les associés", "expectedCaseNumbers": [] },
+    { "id": 9, "q": "dissolution anticipée de la société pour mésentente entre associés", "expectedCaseNumbers": [] },
+    { "id": 10, "q": "liquidation de l'astreinte par le juge de l'exécution", "expectedCaseNumbers": [] },
+    { "id": 11, "q": "immunité d'exécution des entreprises publiques", "expectedCaseNumbers": [] },
+    { "id": 12, "q": "sursis à exécution d'une décision frappée de pourvoi devant la CCJA", "expectedCaseNumbers": [] },
+    { "id": 13, "q": "exequatur d'une sentence arbitrale rendue sous l'égide de la CCJA", "expectedCaseNumbers": [] },
+    { "id": 14, "q": "vente commerciale : dénonciation du défaut de conformité dans un bref délai", "expectedCaseNumbers": [] },
+    { "id": 15, "q": "arrêt n° 45/2019", "expectedCaseNumbers": [] }
+  ]
+}

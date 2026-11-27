@@ -1,9 +1,10 @@
 import { FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { successResponse } from "../utils/utils";
-import { createDecisionSchema, decisionIdSchema, reviewPatchSchema } from "../utils/schemas";
+import { createDecisionSchema, decisionIdSchema, reportDecisionSchema, reviewPatchSchema } from "../utils/schemas";
 import { ingestDecision } from "../services/decisions.service";
-import { getForReview, publishDecision, reviewDecision } from "../services/decision-review.service";
+import { getForReview, listReviewQueue, publishDecision, reviewDecision } from "../services/decision-review.service";
+import { reportDecision } from "../services/decision-report.service";
 
 // The body was validated by the route schema (src/routes/schemas/schemas.ts) before the controller runs
 export type CreateDecisionRoute = { Body: z.output<typeof createDecisionSchema> };
@@ -35,4 +36,16 @@ export const review = async (req: FastifyRequest<ReviewDecisionRoute>, reply: Fa
 
 export const publish = async (req: FastifyRequest<DecisionIdRoute>, reply: FastifyReply) => {
     return successResponse(reply, 200, await publishDecision(req.params.decisionId, keyId(req)));
+}
+
+export type ReportDecisionRoute = DecisionIdRoute & { Body: z.output<typeof reportDecisionSchema> };
+
+/** Public. 202 and the same body whether or not the decision was taken down: the reporter can't probe the breaker. */
+export const report = async (req: FastifyRequest<ReportDecisionRoute>, reply: FastifyReply) => {
+    const { reportId } = await reportDecision(req.params.decisionId, req.body);
+    return successResponse(reply, 202, { reportId });
+}
+
+export const queue = async (req: FastifyRequest, reply: FastifyReply) => {
+    return successResponse(reply, 200, await listReviewQueue(keyId(req)));
 }

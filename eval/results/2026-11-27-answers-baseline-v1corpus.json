@@ -1,0 +1,647 @@
+{
+  "ranAt": "2026-11-27T13:09:49.458Z",
+  "minSimilarity": 0.6,
+  "summary": {
+    "inDocument": {
+      "total": 32,
+      "correct": 30,
+      "wrongArticle": 1,
+      "missedBy": {
+        "llm": 1
+      },
+      "errors": 0,
+      "missesWithArticleRetrieved": 0,
+      "misses": 2
+    },
+    "outOfDocument": {
+      "total": 10,
+      "refused": 10,
+      "refusedBy": {
+        "llm": 7,
+        "threshold": 3
+      },
+      "answered": 0,
+      "errors": 0
+    },
+    "language": {
+      "ok": 31,
+      "answered": 31
+    },
+    "latencyMs": {
+      "mean": 3082,
+      "p50": 2681,
+      "p95": 6291
+    },
+    "cost": {
+      "totalUsd": 0.0168061,
+      "meanPerLlmCallUsd": 0.00043092564102564107,
+      "llmCalls": 39,
+      "unpricedCalls": 0
+    },
+    "models": {
+      "claude-haiku-5-5": 39
+    }
+  },
+  "grades": [
+    {
+      "id": 1,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "2",
+        "7",
+        "59"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 6291,
+      "costUsd": 0.0006821
+    },
+    {
+      "id": 2,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "60",
+        "60",
+        "68"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 5740,
+      "costUsd": 0.0007665
+    },
+    {
+      "id": 3,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "44"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3365,
+      "costUsd": 0.0005031
+    },
+    {
+      "id": 4,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "30",
+        "30",
+        "30",
+        "30"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 5130,
+      "costUsd": 0.0008321
+    },
+    {
+      "id": 5,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "44",
+        "44",
+        "44"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 6497,
+      "costUsd": 0.0009847999999999999
+    },
+    {
+      "id": 6,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "59"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2967,
+      "costUsd": 0.0003942
+    },
+    {
+      "id": 7,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "7"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2597,
+      "costUsd": 0.0003163
+    },
+    {
+      "id": 8,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "7"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2628,
+      "costUsd": 0.000329
+    },
+    {
+      "id": 9,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "375",
+        "375",
+        "359",
+        "359",
+        "181"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 7626,
+      "costUsd": 0.00101
+    },
+    {
+      "id": 10,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "311"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2681,
+      "costUsd": 0.00032370000000000006
+    },
+    {
+      "id": 11,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "13",
+        "13"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4649,
+      "costUsd": 0.0007444000000000001
+    },
+    {
+      "id": 12,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "28"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3064,
+      "costUsd": 0.0002597
+    },
+    {
+      "id": 13,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "161",
+        "161",
+        "165",
+        "169"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3595,
+      "costUsd": 0.0004944
+    },
+    {
+      "id": 14,
+      "category": "out_of_document",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2049,
+      "costUsd": 0.000245
+    },
+    {
+      "id": 15,
+      "category": "out_of_document",
+      "verdict": "refused",
+      "stoppedAt": "threshold",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": null,
+      "latencyMs": 481,
+      "costUsd": null
+    },
+    {
+      "id": 16,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "63",
+        "47",
+        "45"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2889,
+      "costUsd": 0.0004838
+    },
+    {
+      "id": 17,
+      "category": "in_document",
+      "verdict": "missed",
+      "stoppedAt": "llm",
+      "retrieved": false,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2059,
+      "costUsd": 0.0002345
+    },
+    {
+      "id": 18,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "18"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2152,
+      "costUsd": 0.000223
+    },
+    {
+      "id": 19,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "9",
+        "9",
+        "8"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4529,
+      "costUsd": 0.0006365
+    },
+    {
+      "id": 20,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "10",
+        "10"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3459,
+      "costUsd": 0.0003973
+    },
+    {
+      "id": 21,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "311"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2862,
+      "costUsd": 0.00028789999999999995
+    },
+    {
+      "id": 22,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "25",
+        "25"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2423,
+      "costUsd": 0.00027270000000000007
+    },
+    {
+      "id": 23,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "28"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2405,
+      "costUsd": 0.0002631
+    },
+    {
+      "id": 24,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "375"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2610,
+      "costUsd": 0.0003408
+    },
+    {
+      "id": 25,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "16"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2698,
+      "costUsd": 0.00030510000000000004
+    },
+    {
+      "id": 26,
+      "category": "out_of_document",
+      "verdict": "refused",
+      "stoppedAt": "threshold",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": null,
+      "latencyMs": 491,
+      "costUsd": null
+    },
+    {
+      "id": 27,
+      "category": "out_of_document",
+      "verdict": "refused",
+      "stoppedAt": "threshold",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": null,
+      "latencyMs": 485,
+      "costUsd": null
+    },
+    {
+      "id": 28,
+      "category": "out_of_document",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2027,
+      "costUsd": 0.00025560000000000003
+    },
+    {
+      "id": 29,
+      "category": "out_of_document",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2027,
+      "costUsd": 0.00026389999999999996
+    },
+    {
+      "id": 30,
+      "category": "out_of_document",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 1992,
+      "costUsd": 0.0002486
+    },
+    {
+      "id": 31,
+      "category": "out_of_document",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 1973,
+      "costUsd": 0.00023660000000000003
+    },
+    {
+      "id": 32,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "135",
+        "136",
+        "137"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2889,
+      "costUsd": 0.000385
+    },
+    {
+      "id": 33,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "123"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2407,
+      "costUsd": 0.0003635
+    },
+    {
+      "id": 34,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "258"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2498,
+      "costUsd": 0.0003015
+    },
+    {
+      "id": 35,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "31",
+        "31"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2561,
+      "costUsd": 0.0004175
+    },
+    {
+      "id": 36,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "387",
+        "387",
+        "824"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4525,
+      "costUsd": 0.0005992
+    },
+    {
+      "id": 37,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "416",
+        "829"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3043,
+      "costUsd": 0.0003955
+    },
+    {
+      "id": 38,
+      "category": "in_document",
+      "verdict": "wrong_article",
+      "stoppedAt": null,
+      "retrieved": false,
+      "languageOk": true,
+      "citedArticles": [
+        "5"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 4961,
+      "costUsd": 0.0006182999999999999
+    },
+    {
+      "id": 39,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "200",
+        "200",
+        "200",
+        "200",
+        "200"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 3190,
+      "costUsd": 0.00038620000000000006
+    },
+    {
+      "id": 40,
+      "category": "in_document",
+      "verdict": "correct",
+      "stoppedAt": null,
+      "retrieved": true,
+      "languageOk": true,
+      "citedArticles": [
+        "869",
+        "869"
+      ],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2823,
+      "costUsd": 0.0004005
+    },
+    {
+      "id": 41,
+      "category": "out_of_document",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2046,
+      "costUsd": 0.00032720000000000004
+    },
+    {
+      "id": 42,
+      "category": "out_of_document",
+      "verdict": "refused",
+      "stoppedAt": "llm",
+      "retrieved": null,
+      "languageOk": null,
+      "citedArticles": [],
+      "model": "claude-haiku-5-5",
+      "latencyMs": 2041,
+      "costUsd": 0.000277
+    }
+  ]
+}

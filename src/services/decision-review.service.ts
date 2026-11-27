@@ -1,8 +1,8 @@
 import type { z } from 'zod';
-import { and, count, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, count, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { db } from '../db/client';
-import { chunks, decisions, documents, nameMentions } from '../db/schema';
-import { langSchema, type reviewPatchSchema, type reviewViewSchema } from '../utils/schemas';
+import { chunks, decisionCitations, decisionReports, decisions, documents, nameMentions } from '../db/schema';
+import { langSchema, type reviewPatchSchema, type reviewQueueItemSchema, type reviewViewSchema } from '../utils/schemas';
 import { HttpError } from '../utils/http-error';
 import { enqueueEmbedding } from '../jobs/queue';
 import { sectionRank } from './decision-chunker.service';
@@ -41,6 +41,13 @@ async function lockDecision(tx: Tx, decisionId: string) {
 
 type Locked = Awaited<ReturnType<typeof lockDecision>>;
 
+/** A reviewer published the decision again or rejected it: its open reports are dealt with. */
+async function resolveReports(tx: Tx, decisionId: string, reviewerId: string): Promise<void> {
+  await tx.update(decisionReports)
+    .set({ resolvedAt: new Date(), resolvedBy: reviewerId })
+    .where(and(eq(decisionReports.decisionId, decisionId), isNull(decisionReports.resolvedAt)));
+}
+
 /** Four eyes, checked here so it is a 403, not the 500 of the decisions_reviewer_not_contributor CHECK. */
 function assertNotContributor(row: Locked, reviewerId: string): void {
   if (row.contributedBy === reviewerId) throw new HttpError(403, 'Nobody reviews their own upload');
@@ -69,8 +76,16 @@ export async function getForReview(decisionId: string): Promise<ReviewView> {
     .where(eq(chunks.documentId, d.documentId)))
     .sort((a, b) => sectionRank(a.ref) - sectionRank(b.ref) || a.part - b.part);
   const mentions = await db.select().from(nameMentions).where(eq(nameMentions.decisionId, decisionId));
+  const citations = await db.select().from(decisionCitations).where(eq(decisionCitations.decisionId, decisionId));
+  const [{ n: openReports }] = await db.select({ n: count() }).from(decisionReports)
+    .where(and(eq(decisionReports.decisionId, decisionId), isNull(decisionReports.resolvedAt)));
 
   const position = new Map(parts.map((p, i) => [p.id, { index: i + 1, p }]));
+  const segmentOf = (chunkId: string | null, fallback: string): string => {
+    const chunk = chunkId ? position.get(chunkId) : undefined;
+    if (!chunk) return fallback;
+    return chunk.p.part > 0 ? `${chunk.p.ref} (part ${chunk.p.part + 1})` : chunk.p.ref;
+  };
   const located = mentions.map((m) => {
     const chunk = m.chunkId ? position.get(m.chunkId) : undefined;
     const text = chunk ? chunk.p.text : d.captionText ?? '';
@@ -111,8 +126,51 @@ export async function getForReview(decisionId: string): Promise<ReviewView> {
     unconfirmedMentions: mentions.filter((m) => !m.confirmed).length,
     pendingEmbeddings: parts.filter((p) => p.missing).length,
     mentions: located.map((m) => m.view),
+    citations: citations
+      .map((c) => ({
+        order: (c.chunkId ? position.get(c.chunkId)?.index : undefined) ?? Number.MAX_SAFE_INTEGER,
+        view: {
+          id: c.id, segment: segmentOf(c.chunkId, 'reviewer'), rawText: c.rawText,
+          actCode: c.actCode, actVersion: c.actVersion, articleRef: c.articleRef,
+          method: c.method, confidence: c.confidence, reason: c.reason,
+        },
+        createdAt: c.createdAt.getTime(),
+      }))
+      .sort((a, b) => a.order - b.order || a.createdAt - b.createdAt)
+      .map((c) => c.view),
+    openReports,
     publishedAt: d.publishedAt,
   };
+}
+
+export type ReviewQueueItem = z.input<typeof reviewQueueItemSchema>;
+
+/**
+ * What is left to review: decisions in review, plus drafts whose detection failed (a reviewer must read them and send
+ * anonymisationChecked). Reported ones first, then oldest first. `ownUpload`: this reviewer may not review it (403).
+ * Titles are safe to list: detection anonymised them like the text.
+ */
+export async function listReviewQueue(reviewerId: string): Promise<ReviewQueueItem[]> {
+  const unconfirmed = db.select({ decisionId: nameMentions.decisionId, n: count().as('unconfirmed_n') }).from(nameMentions)
+    .where(eq(nameMentions.confirmed, false)).groupBy(nameMentions.decisionId).as('unconfirmed');
+  const reports = db.select({ decisionId: decisionReports.decisionId, n: count().as('open_reports_n') }).from(decisionReports)
+    .where(isNull(decisionReports.resolvedAt)).groupBy(decisionReports.decisionId).as('reports');
+  const rows = await db
+    .select({
+      id: decisions.id, title: documents.title, status: decisions.status,
+      anonymisationStatus: decisions.anonymisationStatus, court: decisions.court, caseNumber: decisions.caseNumber,
+      decisionDate: decisions.decisionDate, contributedBy: decisions.contributedBy, createdAt: decisions.createdAt,
+      unconfirmedMentions: sql<number>`coalesce(${unconfirmed.n}, 0)::int`,
+      openReports: sql<number>`coalesce(${reports.n}, 0)::int`,
+    })
+    .from(decisions)
+    .innerJoin(documents, eq(documents.id, decisions.documentId))
+    .leftJoin(unconfirmed, eq(unconfirmed.decisionId, decisions.id))
+    .leftJoin(reports, eq(reports.decisionId, decisions.id))
+    .where(sql`${decisions.status} = 'in_review'
+      OR (${decisions.status} = 'draft' AND ${decisions.anonymisationStatus} = 'needs_manual_review')`)
+    .orderBy(sql`coalesce(${reports.n}, 0) DESC`, asc(decisions.createdAt));
+  return rows.map(({ contributedBy, createdAt, ...r }) => ({ ...r, ownUpload: contributedBy === reviewerId, createdAt }));
 }
 
 // ── Reviewing ────────────────────────────────────────────────────────────────────────────────────────
@@ -294,6 +352,7 @@ export async function reviewDecision(decisionId: string, reviewerId: string, pat
       }
     }
     if (reembed && !rejecting) await enqueueEmbedding(row.documentId, tx);
+    if (rejecting) await resolveReports(tx, decisionId, reviewerId);
   });
   return getForReview(decisionId);
 }
@@ -361,6 +420,7 @@ export async function publishDecision(decisionId: string, reviewerId: string): P
       await tx.update(decisions)
         .set({ status: 'published', publishedAt: new Date(), reviewedBy: reviewerId, captionText: null })
         .where(eq(decisions.id, decisionId));
+      await resolveReports(tx, decisionId, reviewerId);
     });
   } catch (err) {
     if (missingEmbeddingsOf) await enqueueEmbedding(missingEmbeddingsOf);

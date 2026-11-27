@@ -4,3 +4,9 @@ node_modules
 dist
 # Hand-labelled names of real parties, for the anonymisation eval: personal data, never in git
 eval/*.local.json
+# Decision PDFs and sidecars for the bulk ingest: clear party names, never in git
+eval/decisions-pdf/
+# Query embeddings cached by the search benchmark (paid calls, recomputed on demand)
+eval/.cache/
+# Runtime log of the dev server (pino writes logs/app.log; create the folder before npm run dev)
+logs/

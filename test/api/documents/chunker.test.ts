@@ -67,6 +67,36 @@ describe('selectHeadings', () => {
   });
 });
 
+describe('running header glued to the first line (AUPSRVE PDF)', () => {
+  const GLUED = 'Adopté le 10/04/1998 à Libreville (GABON)';
+  const pages: PageText[] = [
+    { page: 1, text: `ACTE UNIFORME\n${GLUED}Article 1er\nLe recouvrement d'une créance certaine.` },
+    { page: 2, text: `ACTE UNIFORME\n${GLUED}Article 2\nLa procédure d'injonction de payer.` },
+    { page: 3, text: `ACTE UNIFORME\n${GLUED}- soit à payer.\nArticle 3\nLa requête de\n` },
+    { page: 4, text: `ACTE UNIFORME\n${GLUED}restitution du bien ;\nArticle 4\nL'acte contient :\n` },
+    { page: 5, text: `ACTE UNIFORME\n${GLUED}4°) le décompte des sommes.\nPowered by TCPDF (www.tcpdf.org)` },
+  ];
+
+  it('puts the heading back at the start of its line', () => {
+    expect(cleanPageText(`${GLUED}Article 67\nSi la saisie`)).toBe(`${GLUED}\nArticle 67\nSi la saisie`);
+  });
+
+  it('finds every article, and the header text ends up in none of them', () => {
+    const chunks = chunkByArticle(pages);
+    expect(chunks.map((c) => c.articleRef)).toEqual(['1', '2', '3', '4']);
+    for (const c of chunks) {
+      expect(c.content).not.toContain('GABON');
+      expect(c.content).not.toContain('TCPDF');
+    }
+    expect(chunks[2].content).toContain('La requête de\nrestitution du bien ;');
+    expect(chunks[3].content).toContain("L'acte contient :\n4°) le décompte des sommes.");
+  });
+
+  it('leaves a parenthesis followed by a space alone', () => {
+    expect(cleanPageText('le délai (trente jours) Le juge')).toBe('le délai (trente jours) Le juge');
+  });
+});
+
 describe('chunkByArticle', () => {
   it('drops the preamble before the first article', () => {
     const chunks = chunkByArticle([{ page: 1, text: 'PRÉAMBULE\nLe Conseil des Ministres...\nArticle 1er\nTexte.' }]);

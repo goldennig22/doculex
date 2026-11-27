@@ -29,7 +29,7 @@ const file = (value: Buffer, filename = 'act.pdf', contentType = 'application/pd
   value,
   options: { filename, contentType },
 });
-const validFields = () => ({ title: 'AUDCG 2010', language: 'fr', file: file(fakePdf) });
+const validFields = () => ({ title: 'AUDCG 2010', language: 'fr', actCode: 'AUDCG', actVersion: '2010', file: file(fakePdf) });
 
 /** Builds a real multipart/form-data request; apiKey null = no header at all. */
 function upload(fields: Record<string, unknown>, apiKey: string | null = env.ADMIN_API_KEY) {
@@ -120,6 +120,21 @@ describe('POST /api/documents/upload', () => {
     expect(res.json().errors.language).toBeDefined();
   });
 
+  // A statute without its act links to no decision, and nothing says so: refused at the door instead
+  it('returns 422 when actCode and actVersion are missing', async () => {
+    const res = await upload({ title: 'AUDCG 2010', language: 'fr', file: file(fakePdf) });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().errors.actCode).toBeDefined();
+    expect(ingestDocument).not.toHaveBeenCalled();
+  });
+
+  it('returns 422 for a version the act does not have', async () => {
+    const res = await upload({ ...validFields(), actVersion: '2011' });
+    expect(res.statusCode).toBe(422);
+    expect(res.json().errors.actVersion).toBeDefined();
+    expect(ingestDocument).not.toHaveBeenCalled();
+  });
+
   it('returns 413 when the file is over 20 MB', async () => {
     const big = Buffer.concat([fakePdf, Buffer.alloc(21 * 1024 * 1024)]);
     const res = await upload({ ...validFields(), file: file(big) });
@@ -159,7 +174,7 @@ describe('POST /api/documents/upload', () => {
     });
     // The controller passed the validated fields and the file bytes to the service
     expect(ingestDocument).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'AUDCG 2010', language: 'fr', file: expect.any(Buffer) }),
+      expect.objectContaining({ title: 'AUDCG 2010', language: 'fr', actCode: 'AUDCG', actVersion: '2010', file: expect.any(Buffer) }),
     );
   });
 

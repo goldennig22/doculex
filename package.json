@@ -24,7 +24,10 @@
     "decisions:evaluate-anonymisation": "npx tsx src/scripts/eval-anonymisation.ts",
     "documents:set-act": "tsx src/scripts/set-document-act.ts",
     "keys:create": "tsx src/scripts/create-api-key.ts",
-    "exam": "npx tsx src/scripts/test.ts"
+    "keys:revoke": "tsx src/scripts/revoke-api-key.ts",
+    "exam": "npx tsx src/scripts/test.ts",
+    "decisions:ingest": "tsx --env-file=.env src/scripts/ingest-decisions.ts",
+    "decisions:bench-search": "tsx --env-file=.env src/scripts/bench-decision-search.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.107",

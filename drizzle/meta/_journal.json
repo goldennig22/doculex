@@ -113,6 +113,20 @@
       "when": 1795736071179,
       "tag": "0015_decision_citations",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795768801162,
+      "tag": "0016_decision_search_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1795796740299,
+      "tag": "0017_decision_reports",
+      "breakpoints": true
     }
   ]
 }

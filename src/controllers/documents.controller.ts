@@ -26,9 +26,6 @@ export const show = async (req: FastifyRequest<DocumentIdRoute>, reply: FastifyR
     return successResponse(reply, 200, data);
 }
 
-export const update = async (req: FastifyRequest, reply: FastifyReply) => {
-    return successResponse(reply, 200, {});
-}
 
 export const deleteDocument = async (req: FastifyRequest<DocumentIdRoute>, reply: FastifyReply) => {
     // The uuid check ran in the route schema: "abc" gets a 422 and never reaches Postgres (where it would be a 500)

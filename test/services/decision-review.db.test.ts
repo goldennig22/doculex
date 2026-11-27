@@ -3,9 +3,9 @@ import type { FastifyInstance } from 'fastify';
 import { eq, inArray } from 'drizzle-orm';
 import { generateText } from 'ai';
 import { db, sql } from '../../src/db/client';
-import { apiKeys, chunks, decisions, documents, nameMentions } from '../../src/db/schema';
+import { apiKeys, chunks, decisionCitations, decisions, documents, nameMentions } from '../../src/db/schema';
 import { buildApp } from '../../src/app';
-import { embedDocuments } from '../../src/services/embeddings.service';
+import { embedDocuments, embedQuery } from '../../src/services/embeddings.service';
 import { createApiKey } from '../../src/services/api-keys.service';
 import { ingestDecision } from '../../src/services/decisions.service';
 import { getForReview, publishDecision, reviewDecision } from '../../src/services/decision-review.service';
@@ -30,6 +30,7 @@ vi.mock('../../src/services/embeddings.service', () => ({
 }));
 vi.mock('../../src/jobs/queue', () => ({
   enqueueExtraction: vi.fn(), enqueueAnonymisation: vi.fn(), enqueueEmbedding: vi.fn(), enqueueCitationLinking: vi.fn(),
+  enqueueReportNotification: vi.fn(),
 }));
 
 const DIMS = 1536;
@@ -271,20 +272,23 @@ describe.skipIf(!process.env.RUN_DB_TESTS)('anonymisation and review against Pos
     const routes: string[] = [];
     const responses: { route: string; body: string }[] = [];
     const reviewerHeaders = () => ({ 'x-api-key': reviewer.plaintext });
+    let publishedId = '';
 
     // Every /api route must be in one of these lists. A new route fails the coverage test until someone decides
     // whether its responses can contain decision text, and if so, adds it to the scan.
     const SCANNED = [
       'GET /api/documents', 'GET /api/documents/:documentId/show',
       'GET /api/decisions/:decisionId', 'PATCH /api/decisions/:decisionId', 'POST /api/decisions/:decisionId/publish',
+      'GET /api/decisions', 'GET /api/search', 'GET /api/articles/:documentId/:articleRef',
+      'GET /api/decisions/queue', 'POST /api/decisions/:decisionId/report',
     ];
     const EXEMPT: Record<string, string> = {
       'GET /api/health': 'no document content',
       'POST /api/ai/ask': 'statutes only: searchableDocuments() never returns a decision (visibility.test.ts)',
       'POST /api/decisions': 'returns a draft just uploaded, before detection; contributor only',
       'POST /api/documents/upload': 'statutes, admin only',
-      'POST /api/documents/:documentId/update': 'not implemented, returns {}',
       'DELETE /api/documents/:documentId/delete': 'returns the id only',
+      'GET /api/stats': 'counts by court, country and year: no decision text',
     };
 
     beforeAll(async () => {
@@ -316,6 +320,31 @@ describe.skipIf(!process.env.RUN_DB_TESTS)('anonymisation and review against Pos
       await keep('GET /api/documents/:documentId/show', await app.inject({ method: 'GET', url: `/api/documents/${stored.documentId}/show` }));
       await keep('GET /api/decisions/:decisionId',
         await app.inject({ method: 'GET', url: `/api/decisions/${stored.id}`, headers: reviewerHeaders() }));
+      // The public search routes, each with the published decision in its results (checked below)
+      vi.mocked(embedQuery).mockResolvedValue(axis(702));
+      await keep('GET /api/decisions', await app.inject({ method: 'GET', url: '/api/decisions?court=CCJA&limit=50' }));
+      await keep('GET /api/decisions', await app.inject({ method: 'GET', url: '/api/decisions?q=commer%C3%A7ant&limit=50' }));
+      await keep('GET /api/search', await app.inject({ method: 'GET', url: '/api/search?q=commer%C3%A7ant&limit=50' }));
+      // The article page lists the decisions citing it, with their headnotes: link the published one to an article
+      const [statute] = await db.insert(documents).values({
+        kind: 'statute', title: 'Acte uniforme de test (scan)', language: 'fr', actCode: 'AUSCGIE', actVersion: '2014',
+      }).returning({ id: documents.id });
+      documentIds.push(statute.id);
+      await db.insert(chunks).values({ documentId: statute.id, articleRef: '7', pageStart: 1, pageEnd: 1, content: 'Article 7.' });
+      await db.insert(decisionCitations).values({
+        decisionId: stored.id, actCode: 'AUSCGIE', actVersion: '2014', articleRef: '7', rawText: "l'article 7",
+        actSource: 'explicit', method: 'rule', confidence: 'high',
+      });
+      await keep('GET /api/articles/:documentId/:articleRef',
+        await app.inject({ method: 'GET', url: `/api/articles/${statute.id}/7` }));
+      publishedId = stored.id;
+      // Titles of every decision waiting for review (other tests' ones too): detection anonymised them
+      await keep('GET /api/decisions/queue', await app.inject({ method: 'GET', url: '/api/decisions/queue', headers: reviewerHeaders() }));
+      // Not personal_data: the decision stays published, so the PATCH below still meets a published decision
+      await keep('POST /api/decisions/:decisionId/report', await app.inject({
+        method: 'POST', url: `/api/decisions/${stored.id}/report`, payload: { reason: 'wrong_metadata', message: 'La date est fausse.' },
+      }), 202);
+
       await keep('PATCH /api/decisions/:decisionId', await app.inject({
         method: 'PATCH', url: `/api/decisions/${stored.id}`, headers: reviewerHeaders(), payload: { status: 'rejected' },
       }), 409);
@@ -333,6 +362,12 @@ describe.skipIf(!process.env.RUN_DB_TESTS)('anonymisation and review against Pos
     it('the published decision appears in the public listing (the scan saw it)', () => {
       const listing = responses.find((r) => r.route === 'GET /api/documents')!;
       expect(listing.body).toContain('CCJA, arrêt X c/ Société Gamma SARL');
+    });
+
+    it('the published decision is in every public search response (the scan saw it)', () => {
+      for (const route of ['GET /api/decisions', 'GET /api/search', 'GET /api/articles/:documentId/:articleRef']) {
+        for (const r of responses.filter((x) => x.route === route)) expect(r.body, route).toContain(publishedId);
+      }
     });
 
     it.each(SCANNED)('%s contains no fixture party name', (route) => {

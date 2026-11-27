@@ -73,7 +73,7 @@ describe('POST /api/ai/ask: rate limit', () => {
     expect((await ask({ question: Q1 }, '10.0.0.2')).statusCode).toBe(200);
   });
 
-  it('does not limit other routes', async () => {
+  it('has its own bucket: requests to other routes are not counted in it (they share the global 300 / min)', async () => {
     for (let i = 0; i < ASK_RATE_LIMIT.max + 1; i++) {
       const res = await app.inject({ method: 'GET', url: '/api/no-such-route', remoteAddress: '10.0.0.1' });
       expect(res.statusCode).not.toBe(429);

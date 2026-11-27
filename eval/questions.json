@@ -473,6 +473,358 @@
       "question": "What are the conditions for opening a preventive settlement procedure under the OHADA Uniform Act on insolvency proceedings?",
       "expected_answer_summary": "Not covered by the uploaded OHADA Uniform Acts (general commercial law, commercial companies and EIG). Near miss: another OHADA Uniform Act, not ingested.",
       "expected_articles": []
+    },
+    {
+      "id": 43,
+      "language": "fr",
+      "category": "case_law",
+      "draft": true,
+      "question": "Comment la CCJA apprécie-t-elle l'existence d'une société de fait entre deux personnes qui exploitent ensemble une plantation ?",
+      "expected_answer_summary": "Selon la CCJA (arrêt n° 191/2015), les juges du fond déduisent souverainement des éléments de preuve un comportement non équivoque de s'associer ; la Cour rejette le pourvoi. Piège : le moyen-1 commence par l'argument du demandeur, selon lequel les conditions de la société de fait ne sont pas réunies.",
+      "expected_case_numbers": [
+        "191/2015"
+      ],
+      "expected_articles": [
+        "864"
+      ],
+      "answer_sections": [
+        "moyen-1"
+      ]
+    },
+    {
+      "id": 44,
+      "language": "en",
+      "category": "case_law",
+      "draft": true,
+      "question": "According to the CCJA, can a company formed under national law convert into a company form provided by the OHADA Uniform Act on commercial companies?",
+      "expected_answer_summary": "Yes (Opinion no. 002/2015): converting from a national form to a uniform-act form is possible, the AUSCGIE applying alone since its entry into force (arts 181 to 188); a mere change of acronym is not a conversion when the features of the form are identical.",
+      "expected_case_numbers": [
+        "002/2015"
+      ],
+      "expected_articles": [
+        "181",
+        "182",
+        "183",
+        "184",
+        "185",
+        "186",
+        "187",
+        "188"
+      ],
+      "answer_sections": [
+        "texte"
+      ]
+    },
+    {
+      "id": 45,
+      "language": "fr",
+      "category": "case_law",
+      "draft": true,
+      "question": "Selon la CCJA, un commissaire aux comptes peut-il certifier des états financiers établis selon le SYSCOA révisé de l'UEMOA plutôt que selon le référentiel comptable OHADA ?",
+      "expected_answer_summary": "Non (avis n° 03/2015) : le système comptable OHADA est le seul applicable dans les États parties, tout autre référentiel est dépourvu de valeur juridique, et le commissaire aux comptes doit refuser la certification. Articles liés : obligation de tenir les livres et d'établir les états financiers selon l'Acte uniforme comptable.",
+      "expected_case_numbers": [
+        "03/2015"
+      ],
+      "expected_articles": [
+        "13",
+        "15"
+      ],
+      "expected_title": "Acte uniforme OHADA du 15 décembre 2010 portant sur le droit commercial généra",
+      "answer_sections": [
+        "texte"
+      ]
+    },
+    {
+      "id": 46,
+      "language": "en",
+      "category": "case_law",
+      "draft": true,
+      "question": "Can a court of appeal admit an appeal lodged out of time against a judgment on an objection to an order to pay, because its First President granted relief from the time bar?",
+      "expected_answer_summary": "No (judgment no. 100/2015): the 30-day appeal period of art. 15 is not covered by the reference to national law, which provides no relief from the time bar; the CCJA quashed the judgment and declared the appeal inadmissible.",
+      "expected_case_numbers": [
+        "100/2015"
+      ],
+      "expected_articles": [
+        "15"
+      ],
+      "expected_title": "Acte uniforme OHADA du 10 avril 1998 portant organisation des procédures simplifiées de recouvrement et des voies d'exécution",
+      "answer_sections": [
+        "moyen-1"
+      ]
+    },
+    {
+      "id": 47,
+      "language": "fr",
+      "category": "case_law",
+      "draft": true,
+      "question": "Un relevé de compte bancaire établi unilatéralement par la banque suffit-il à fonder une injonction de payer ?",
+      "expected_answer_summary": "Non (arrêt n° 189/2015) : l'injonction de payer suppose une créance certaine, liquide et exigible, et le seul relevé d'un compte courant ne saurait en tenir lieu ; la CCJA casse et rétracte l'ordonnance.",
+      "expected_case_numbers": [
+        "189/2015"
+      ],
+      "expected_articles": [
+        "1"
+      ],
+      "expected_title": "Acte uniforme OHADA du 10 avril 1998 portant organisation des procédures simplifiées de recouvrement et des voies d'exécution",
+      "answer_sections": [
+        "moyen-1",
+        "evocation"
+      ]
+    },
+    {
+      "id": 48,
+      "language": "en",
+      "category": "case_law",
+      "draft": true,
+      "question": "Can a court of appeal set aside an order to pay based on accepted bills of exchange by calling the debt doubtful, without showing why the bills are invalid?",
+      "expected_answer_summary": "No (judgment no. 009/2016): the CCJA quashed for insufficient reasons under art. 2; on the merits, a bill of exchange is a formal instrument and defences drawn from the underlying relationship cannot be raised against it.",
+      "expected_case_numbers": [
+        "009/2016"
+      ],
+      "expected_articles": [
+        "2"
+      ],
+      "expected_title": "Acte uniforme OHADA du 10 avril 1998 portant organisation des procédures simplifiées de recouvrement et des voies d'exécution",
+      "answer_sections": [
+        "moyen-1",
+        "evocation"
+      ]
+    },
+    {
+      "id": 49,
+      "language": "fr",
+      "category": "case_law",
+      "draft": true,
+      "question": "L'omission de la date dans un acte de saisie-attribution entraîne-t-elle sa nullité ?",
+      "expected_answer_summary": "Oui (arrêt n° 190/2015) : l'indication de la date est une condition de validité de l'acte de saisie-attribution (art. 157 al. 2) et son défaut entraîne la nullité ; pourvoi rejeté.",
+      "expected_case_numbers": [
+        "190/2015"
+      ],
+      "expected_articles": [
+        "157"
+      ],
+      "expected_title": "Acte uniforme OHADA du 10 avril 1998 portant organisation des procédures simplifiées de recouvrement et des voies d'exécution",
+      "answer_sections": [
+        "moyen-1"
+      ]
+    },
+    {
+      "id": 50,
+      "language": "en",
+      "category": "case_law",
+      "draft": true,
+      "question": "In a dispute over an attachment of debts (saisie-attribution), can the summary-proceedings judge appoint a sequestrator?",
+      "expected_answer_summary": "No (judgment no. 101/2015): art. 166 requires the ex parte application procedure for appointing a sequestrator, so the court of appeal breached it; a mere error in the statement of sums is not sanctioned by art. 157.",
+      "expected_case_numbers": [
+        "101/2015"
+      ],
+      "expected_articles": [
+        "166",
+        "169"
+      ],
+      "expected_title": "Acte uniforme OHADA du 10 avril 1998 portant organisation des procédures simplifiées de recouvrement et des voies d'exécution",
+      "answer_sections": [
+        "moyen-1",
+        "dispositif"
+      ]
+    },
+    {
+      "id": 51,
+      "language": "fr",
+      "category": "case_law",
+      "draft": true,
+      "question": "Que devient une saisie conservatoire lorsque les ordonnances d'injonction de payer qui la fondaient ont été rétractées et que le créancier n'a pas obtenu de titre exécutoire dans le délai ?",
+      "expected_answer_summary": "Elle est caduque et sa mainlevée doit être ordonnée (arrêt n° 006/2016, art. 61) : faute de procédure engagée pour obtenir un titre exécutoire dans le délai, la saisie tombe.",
+      "expected_case_numbers": [
+        "006/2016"
+      ],
+      "expected_articles": [
+        "61"
+      ],
+      "expected_title": "Acte uniforme OHADA du 10 avril 1998 portant organisation des procédures simplifiées de recouvrement et des voies d'exécution",
+      "answer_sections": [
+        "moyen-1"
+      ]
+    },
+    {
+      "id": 52,
+      "language": "en",
+      "category": "case_law",
+      "draft": true,
+      "question": "In a real-property seizure, when can a decision be appealed, and what must the notice of appeal contain?",
+      "expected_answer_summary": "Only on the grounds limitatively listed in art. 300 (principle of the debt, incapacity, ownership...), and the notice of appeal must set out the grounds on pain of nullity (art. 301); judgment no. 004/2016 declared the appeal inadmissible.",
+      "expected_case_numbers": [
+        "004/2016"
+      ],
+      "expected_articles": [
+        "300",
+        "301"
+      ],
+      "expected_title": "Acte uniforme OHADA du 10 avril 1998 portant organisation des procédures simplifiées de recouvrement et des voies d'exécution",
+      "answer_sections": [
+        "evocation"
+      ]
+    },
+    {
+      "id": 53,
+      "language": "fr",
+      "category": "case_law",
+      "draft": true,
+      "question": "Le commandement aux fins de saisie immobilière doit-il obligatoirement être signifié à la personne même du débiteur ?",
+      "expected_answer_summary": "Non (arrêt n° 099/2015) : l'article 254 impose seulement de respecter les formes de signification du droit interne ; la remise de l'exploit au gardien, au domicile du débiteur, n'est pas irrégulière. Piège : c'est la thèse inverse qui avait été retenue par le jugement cassé.",
+      "expected_case_numbers": [
+        "099/2015"
+      ],
+      "expected_articles": [
+        "254"
+      ],
+      "expected_title": "Acte uniforme OHADA du 10 avril 1998 portant organisation des procédures simplifiées de recouvrement et des voies d'exécution",
+      "answer_sections": [
+        "moyen-1"
+      ]
+    },
+    {
+      "id": 54,
+      "language": "en",
+      "category": "case_law",
+      "draft": true,
+      "question": "How long is the time limit to appeal an order of the enforcement judge, when does it start, and must the order be served on the debtor in person?",
+      "expected_answer_summary": "Fifteen days from the date the decision is pronounced (art. 49), and no provision requires service on the debtor in person (judgment no. 096/2015). The same judgment holds that a claim resting on a mere summons is not certain, liquid and due.",
+      "expected_case_numbers": [
+        "096/2015"
+      ],
+      "expected_articles": [
+        "49"
+      ],
+      "expected_title": "Acte uniforme OHADA du 10 avril 1998 portant organisation des procédures simplifiées de recouvrement et des voies d'exécution",
+      "answer_sections": [
+        "moyen-1",
+        "faits"
+      ]
+    },
+    {
+      "id": 55,
+      "language": "fr",
+      "category": "case_law",
+      "draft": true,
+      "question": "La nullité du contrat principal entraîne-t-elle la nullité de la clause compromissoire qu'il contient ?",
+      "expected_answer_summary": "Non (arrêt n° 097/2015) : la convention d'arbitrage est autonome, la nullité du contrat principal est sans effet sur elle ; une demande de mesures conservatoires ne vaut pas renonciation à l'arbitrage. Acte uniforme sur l'arbitrage non ingéré : réponse par la jurisprudence seule.",
+      "expected_case_numbers": [
+        "097/2015"
+      ],
+      "expected_articles": [],
+      "answer_sections": [
+        "moyen-1"
+      ]
+    },
+    {
+      "id": 56,
+      "language": "en",
+      "category": "case_law",
+      "draft": true,
+      "question": "Can a national supreme court decide an appeal in a dispute over abuse of majority and dividends in a public limited company governed by the OHADA companies Act?",
+      "expected_answer_summary": "No (judgment no. 068/2015): such a case falls within the exclusive jurisdiction of the CCJA under art. 14 of the Treaty; the national supreme court judgment is deemed null and void.",
+      "expected_case_numbers": [
+        "068/2015"
+      ],
+      "expected_articles": [],
+      "answer_sections": [
+        "faits",
+        "dispositif"
+      ]
+    },
+    {
+      "id": 57,
+      "language": "fr",
+      "category": "case_law",
+      "draft": true,
+      "question": "La CCJA peut-elle connaître d'un pourvoi contre un arrêt correctionnel prononçant une peine d'emprisonnement lorsque le litige touche à un Acte uniforme ?",
+      "expected_answer_summary": "Non (arrêt n° 188/2015) : l'article 14 alinéa 3 du Traité exclut de sa compétence les décisions appliquant des sanctions pénales ; la Cour se déclare incompétente.",
+      "expected_case_numbers": [
+        "188/2015"
+      ],
+      "expected_articles": [],
+      "answer_sections": [
+        "competence"
+      ]
+    },
+    {
+      "id": 58,
+      "language": "en",
+      "category": "case_law",
+      "draft": true,
+      "question": "Can a party ask for the recusal of all the judges of the CCJA?",
+      "expected_answer_summary": "No (judgment no. 084/2015): neither the Treaty nor the Rules of procedure provide for the recusal of a judge, let alone all of them; the application, aimed at a denial of justice, is inadmissible.",
+      "expected_case_numbers": [
+        "084/2015"
+      ],
+      "expected_articles": [],
+      "answer_sections": [
+        "procedure",
+        "dispositif"
+      ]
+    },
+    {
+      "id": 59,
+      "language": "fr",
+      "category": "case_law",
+      "draft": true,
+      "question": "Un pourvoi qui se borne à critiquer l'appréciation des éléments de la cause par le juge du fond est-il recevable devant la CCJA ?",
+      "expected_answer_summary": "Non (arrêt n° 070/2015) : faute de contenir l'énoncé d'un moyen de cassation au sens de l'article 28 du Règlement de procédure, le pourvoi est irrecevable.",
+      "expected_case_numbers": [
+        "070/2015"
+      ],
+      "expected_articles": [],
+      "answer_sections": [
+        "recevabilite"
+      ]
+    },
+    {
+      "id": 60,
+      "language": "en",
+      "category": "case_law",
+      "draft": true,
+      "question": "What happens when the appellant withdraws its appeal to the CCJA before the appeal has been served on the respondent?",
+      "expected_answer_summary": "Order no. 008/2015: the Court notes the withdrawal, declares the proceedings extinguished and orders the appellant to pay costs (art. 44 of the Rules of procedure), the respondent having made no counterclaim.",
+      "expected_case_numbers": [
+        "008/2015"
+      ],
+      "expected_articles": [],
+      "answer_sections": [
+        "procedure",
+        "dispositif"
+      ]
+    },
+    {
+      "id": 61,
+      "language": "fr",
+      "category": "case_law",
+      "draft": true,
+      "question": "Que se passe-t-il si le créancier qui a obtenu l'inscription provisoire d'une hypothèque conservatoire n'engage ni l'action en validité ni l'action au fond dans le délai fixé ?",
+      "expected_answer_summary": "L'autorisation ne peut être confirmée et l'ordonnance est rétractée (arrêt n° 010/2016, art. 136 de l'Acte uniforme sur les sûretés, non ingéré).",
+      "expected_case_numbers": [
+        "010/2016"
+      ],
+      "expected_articles": [],
+      "answer_sections": [
+        "moyen-1",
+        "evocation"
+      ]
+    },
+    {
+      "id": 62,
+      "language": "en",
+      "category": "case_law",
+      "draft": true,
+      "question": "Is a judgment adequately reasoned when, in the same reasoning, it holds the debt to be uncertain and the recovery action inadmissible?",
+      "expected_answer_summary": "No (judgment no. 003/2016): those are contradictory grounds amounting to a lack of reasons, and the judgment is quashed.",
+      "expected_case_numbers": [
+        "003/2016"
+      ],
+      "expected_articles": [],
+      "answer_sections": [
+        "moyen-1"
+      ]
     }
   ]
 }

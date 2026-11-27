@@ -6,6 +6,7 @@ import { markExtractionFailed, runDecisionExtraction } from './jobs/extract-deci
 import { anonymisationFailed, runAnonymisation } from './jobs/anonymise-decision.job';
 import { runEmbedDecision } from './jobs/embed-decision.job';
 import { runCitationLinking } from './jobs/link-citations.job';
+import { runNotifyReport } from './jobs/notify-report.job';
 
 const app = buildApp();
 
@@ -20,6 +21,7 @@ const start = async () => {
       anonymisationFailed,
       embedDecision: runEmbedDecision,
       linkCitations: runCitationLinking,
+      notifyReport: (reportId) => runNotifyReport(reportId),
     });
     await app.listen({ port: env.PORT, host: env.HOST });
     for (const signal of ['SIGINT', 'SIGTERM']) {

@@ -131,6 +131,12 @@ export const decisions = pgTable('decisions', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => [
   index('decisions_status').on(t.status),
+  // Search over published decisions (decision-search.service.ts). Partial: drafts are never searched, so they have
+  // no reason to be in these indexes, and the query states `status = 'published'` literally so the planner can use them.
+  // Each one ends with the date: a filter on court or country still reads its rows already sorted newest first.
+  index('decisions_published_date').on(t.decisionDate.desc(), t.id).where(sql`${t.status} = 'published'`),
+  index('decisions_published_court').on(t.court, t.decisionDate.desc()).where(sql`${t.status} = 'published'`),
+  index('decisions_published_country').on(t.country, t.decisionDate.desc()).where(sql`${t.status} = 'published'`),
   // A decision can't be published half-filled or unreviewed, whatever the application code does
   check('decisions_published_complete', sql`${t.status} <> 'published' OR (
     ${t.publishedAt} IS NOT NULL AND ${t.reviewedBy} IS NOT NULL
@@ -176,6 +182,9 @@ export const citationConfidence = pgEnum('citation_confidence', ['high', 'medium
 // Not a statute document id: article numbers belong to a VERSION of an act (AUDCG 1997 and 2010 number leases
 // differently), and a document id dies when a statute is deleted and uploaded again. Not a chunk id either: chunks
 // are recreated on re-ingest and differ for each part. The article page joins documents on (act_code, act_version).
+// One row per MENTION, not per cited article: Avis n° 002/2015 names AUSCGIE art. 908 ten times, so ten rows. Readers
+// that want "which articles does this decision cite" must GROUP BY or SELECT DISTINCT (decision_id, act_code,
+// act_version, article_ref). No UNIQUE on that tuple on purpose: each mention keeps its own raw_text and chunk.
 export const decisionCitations = pgTable('decision_citations', {
   id: uuid('id').primaryKey().defaultRandom(),
   decisionId: uuid('decision_id').notNull().references(() => decisions.id, { onDelete: 'cascade' }),
@@ -195,4 +204,31 @@ export const decisionCitations = pgTable('decision_citations', {
 }, (t) => [
   index('decision_citations_decision').on(t.decisionId),
   index('decision_citations_article').on(t.actCode, t.actVersion, t.articleRef),
+  // The search filter `act=AUDCG&article=7` without a version: the index above can't skip its middle column
+  index('decision_citations_act_article').on(t.actCode, t.articleRef),
+]);
+
+// ─── Takedown: reports on published decisions ───────────────────────────────
+
+export const reportReason = pgEnum('report_reason', ['personal_data', 'wrong_metadata', 'wrong_text', 'other']);
+
+// One row per report (POST /api/decisions/:id/report, public). A 'personal_data' report takes the decision offline
+// at once (published → in_review), unless the daily breaker is open: see decision-report.service.ts.
+// message and contact are personal data of the reporter: never published, never sent to the notification service.
+export const decisionReports = pgTable('decision_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  decisionId: uuid('decision_id').notNull().references(() => decisions.id, { onDelete: 'cascade' }),
+  reason: reportReason('reason').notNull(),
+  message: text('message'),
+  contact: text('contact'),
+  tookDown: boolean('took_down').notNull(),       // this report moved the decision back to in_review
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  // Set when a reviewer publishes the decision again or rejects it
+  resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+  resolvedBy: uuid('resolved_by').references(() => apiKeys.id),
+}, (t) => [
+  index('decision_reports_decision').on(t.decisionId),
+  // The breaker counts today's takedowns
+  index('decision_reports_took_down').on(t.createdAt).where(sql`${t.tookDown}`),
+  check('decision_reports_resolved', sql`(${t.resolvedAt} IS NULL) = (${t.resolvedBy} IS NULL)`),
 ]);

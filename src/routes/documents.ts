@@ -1,5 +1,5 @@
 import { FastifyPluginAsync } from "fastify";
-import { deleteDocument, DocumentIdRoute, list, show, update, upload, UploadRoute } from "../controllers/documents.controller";
+import { deleteDocument, DocumentIdRoute, list, show, upload, UploadRoute } from "../controllers/documents.controller";
 import { requireRole } from "../middleware/requireRole";
 import { deleteDocumentSchema, listDocumentsSchema, showDocumentSchema, uploadDocumentRouteSchema } from "./schemas/schemas";
 
@@ -13,8 +13,6 @@ export const documentRoutes: FastifyPluginAsync = async (app) => {
         // Statutes are admin-only. The legacy ADMIN_API_KEY still works here until it is retired.
         admin.addHook('onRequest', requireRole('admin', { allowLegacyAdmin: true }));
         admin.post<UploadRoute>('/upload', { schema: uploadDocumentRouteSchema }, upload);
-        // Not implemented yet (always returns {}): kept out of the API docs until it does something
-        admin.post('/:documentId/update', { schema: { hide: true } }, update);
         admin.delete<DocumentIdRoute>('/:documentId/delete', { schema: deleteDocumentSchema }, deleteDocument);
     });
 };

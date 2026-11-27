@@ -1,6 +1,6 @@
 import z from "zod";
-import { anonymisationStatus, decisionOutcome } from "../db/schema";
-import { ACTS, LINKABLE_ACT_CODES } from "../services/citations/acts";
+import { anonymisationStatus, citationConfidence, citationMethod, decisionOutcome, reportReason } from "../db/schema";
+import { ACT_CODES, ACTS, LINKABLE_ACT_CODES } from "../services/citations/acts";
 
 const isPdf = (b: Buffer) => b.subarray(0, 5).toString('latin1') === '%PDF-';
 export const uploadDocumentSchema = z.object({
@@ -8,12 +8,11 @@ export const uploadDocumentSchema = z.object({
     title: z.string().trim().min(3).max(200),
     language: z.enum(['fr', 'en']),
     sourceUrl: z.url().optional(),
-    actCode: z.enum(LINKABLE_ACT_CODES).optional()
+    // Required: a statute uploaded without them links to no decision, silently (both v1 statutes did, until set-act)
+    actCode: z.enum(LINKABLE_ACT_CODES)
         .describe('Which act this statute is, so decisions citing it link to it: AUDCG, AUSCGIE, AUPSRVE…'),
-    actVersion: z.string().trim().optional().describe('The version of that act, by adoption year: "2010" for the revised AUDCG'),
-}).refine((b) => (b.actCode === undefined) === (b.actVersion === undefined), {
-    message: 'Send both actCode and actVersion, or neither', path: ['actVersion'],
-}).refine((b) => !b.actCode || ACTS[b.actCode].versions.some((v) => v.version === b.actVersion), {
+    actVersion: z.string().trim().describe('The version of that act, by adoption year: "2010" for the revised AUDCG'),
+}).refine((b) => ACTS[b.actCode].versions.some((v) => v.version === b.actVersion), {
     message: 'Unknown version for this act (see src/services/citations/acts.ts)', path: ['actVersion'],
 })
 
@@ -186,24 +185,66 @@ export const reviewViewSchema = z.object({
     unconfirmedMentions: z.number().int(),
     pendingEmbeddings: z.number().int().describe('Chunks whose text changed and are not embedded again yet; publish waits for 0'),
     mentions: z.array(mentionViewSchema),
-    publishedAt: z.date().nullable(),
+    citations: z.array(z.object({
+        id: z.uuid(),
+        segment: z.string().describe('The section it was found in; "reviewer" when a reviewer added it'),
+        rawText: z.string().describe('As written in the decision: "l\'article 49 de l\'AUPSRVE"'),
+        actCode: z.string().nullable().describe('null: the act could not be resolved'),
+        actVersion: z.string().nullable(),
+        articleRef: z.string(),
+        method: z.enum(citationMethod.enumValues),
+        confidence: z.enum(citationConfidence.enumValues).describe('Only high and medium links are shown on article pages'),
+        reason: z.string().nullable().describe('Why this confidence (see LinkReason in src/services/citations/grading.ts)'),
+    })).describe('Every article reference found in the text, one per mention, in reading order'),
+    openReports: z.number().int().describe('Reports not resolved yet; a decision taken down by a report has at least one'),
+    publishedAt: z.date().nullable().describe('Kept after a takedown: the decision was public until then'),
 })
+
+export const reviewQueueItemSchema = z.object({
+    id: z.uuid(),
+    title: z.string().describe('Anonymised by detection, like the text'),
+    status: decisionStatusSchema,
+    anonymisationStatus: z.enum(anonymisationStatus.enumValues),
+    court: z.string().nullable(),
+    caseNumber: z.string().nullable(),
+    decisionDate: z.string().nullable(),
+    unconfirmedMentions: z.number().int(),
+    openReports: z.number().int().describe('Reported decisions come first'),
+    ownUpload: z.boolean().describe('Uploaded with your key: someone else must review it'),
+    createdAt: z.date(),
+});
+
+// ── Takedown: reports on published decisions ──
+
+export const reportDecisionSchema = z.object({
+    reason: z.enum(reportReason.enumValues)
+        .describe('personal_data takes the decision offline at once; the others are reviewed without taking it down'),
+    message: z.string().trim().min(10).max(2000).optional()
+        .describe('What is wrong and where ("the manager\'s name is visible in moyen-1"). Never published'),
+    contact: z.email().max(200).optional().describe('To be told what was done. Optional, never published'),
+}).strict();
+
+export const reportReceivedSchema = z.object({
+    reportId: z.uuid(),
+}).describe('The same answer whether or not the decision was taken down');
 
 // ── Article pages ──
 
 // Same format as chunks.article_ref once normalised: "1er" → "1", "12BIS" → "12 bis"
 const ARTICLE_REF = /^(1er|premier|\d+(?:-\d+)?)(?:\s*(bis|ter|quater|quinquies|sexies|septies|octies))?$/i;
 
+/** An article number as a reader types it, normalised to the stored form. Shared by the article page and search. */
+export const articleRefSchema = z.string().trim().max(30)
+    .regex(ARTICLE_REF, 'An article number, e.g. "7", "12 bis", "35-1", "1er"')
+    .transform((ref) => {
+        const m = ARTICLE_REF.exec(ref)!;
+        const n = /^(1er|premier)$/i.test(m[1]) ? '1' : m[1];
+        return m[2] ? `${n} ${m[2].toLowerCase()}` : n;
+    });
+
 export const articleParamsSchema = z.object({
     documentId: z.uuid(),
-    articleRef: z.string().trim().max(30)
-        .regex(ARTICLE_REF, 'An article number, e.g. "7", "12 bis", "35-1", "1er"')
-        .transform((ref) => {
-            const m = ARTICLE_REF.exec(ref)!;
-            const n = /^(1er|premier)$/i.test(m[1]) ? '1' : m[1];
-            return m[2] ? `${n} ${m[2].toLowerCase()}` : n;
-        })
-        .describe('The article number as printed in the Act ("12 bis" is sent as 12%20bis)'),
+    articleRef: articleRefSchema.describe('The article number as printed in the Act ("12 bis" is sent as 12%20bis)'),
 });
 
 export const articlePageSchema = z.object({
@@ -232,4 +273,88 @@ export const articlePageSchema = z.object({
         citedAs: z.array(z.string()).describe('How the decision cites the article, as written in it'),
         confidence: z.enum(['high', 'medium']).describe('high: the act is named next to the article; medium: inferred, or found by the LLM'),
     })).describe('Published decisions citing this article, newest first (at most 50)'),
+});
+
+// ── Search over published decisions, combined search, stats ──
+
+/** A text filter from a query string: `?court=` (a cleared search field) means no filter, not a 422. */
+const queryText = (max: number) => z.string().trim().max(max).optional().transform((v) => (v ? v : undefined));
+
+export const MAX_SEARCH_LIMIT = 50;
+
+export const decisionSearchQuerySchema = z.object({
+    q: queryText(500).describe('Free text. With it, decisions are ranked by meaning (their closest section); without it, newest first'),
+    court: queryText(200).describe('Exact value, as listed by GET /api/stats: "CCJA"'),
+    country: z.string().trim().regex(/^[A-Za-z]{2}$/, 'ISO 3166-1 alpha-2 code, e.g. CI').transform((c) => c.toUpperCase()).optional(),
+    year: z.coerce.number().int().min(1960).max(2100).optional(),
+    subject: queryText(200).describe('Words searched in the subject, in the decision\'s language: "bail commercial", "\\"saisie conservatoire\\""'),
+    outcome: z.enum(decisionOutcome.enumValues).optional(),
+    act: z.enum(ACT_CODES).optional().describe('With article: decisions citing that article of that act'),
+    article: articleRefSchema.optional().describe('Needs act: "7", "12 bis"'),
+    version: z.string().trim().max(10).optional().describe('Needs act: the act version by adoption year, "1997" or "2010"'),
+    page: z.coerce.number().int().min(1).max(10_000).default(1),
+    limit: z.coerce.number().int().min(1).max(MAX_SEARCH_LIMIT).default(20),
+}).refine((f) => f.act !== undefined || (f.article === undefined && f.version === undefined), {
+    // "article 7" alone is ambiguous: the AUDCG and the AUSCGIE both have one
+    message: 'article and version need act', path: ['act'],
+});
+
+export const decisionHitSchema = z.object({
+    id: z.uuid(),
+    documentId: z.uuid(),
+    title: z.string(),
+    language: langSchema,
+    court: z.string(),
+    country: z.string().nullable(),
+    chamber: z.string().nullable(),
+    caseNumber: z.string().nullable(),
+    decisionDate: z.string(),
+    subject: z.string().nullable(),
+    outcome: z.enum(decisionOutcome.enumValues).nullable(),
+    headnote: z.string().nullable(),
+    match: z.object({
+        similarity: z.number().describe('Cosine similarity of the closest section to q'),
+        section: z.string().describe('That section: "faits", "moyen-2", "dispositif"'),
+        snippet: z.string().describe('Its first 300 characters (anonymised)'),
+        caseNumber: z.boolean().describe('q contains this decision\'s case number: ranked first'),
+    }).nullable().describe('Why it matched; null without q'),
+});
+
+export const decisionSearchPageSchema = z.object({
+    items: z.array(decisionHitSchema),
+    page: z.number().int(),
+    limit: z.number().int(),
+    total: z.number().int().describe('Published decisions matching the filters; q orders them, it doesn\'t remove any'),
+    totalPages: z.number().int(),
+});
+
+export const searchAllQuerySchema = z.object({
+    q: z.string().trim().min(1).max(500),
+    limit: z.coerce.number().int().min(1).max(MAX_SEARCH_LIMIT).default(20),
+});
+
+export const searchItemSchema = z.discriminatedUnion('type', [
+    z.object({
+        type: z.literal('article'),
+        similarity: z.number(),
+        documentId: z.uuid(),
+        documentTitle: z.string(),
+        articleRef: z.string(),
+        pageStart: z.number().int(),
+        snippet: z.string(),
+    }),
+    z.object({
+        type: z.literal('decision'),
+        similarity: z.number(),
+        ...decisionHitSchema.omit({ match: true }).shape,
+        section: z.string(),
+        snippet: z.string(),
+    }),
+]);
+
+export const decisionStatsSchema = z.object({
+    total: z.number().int().describe('Published decisions'),
+    byCourt: z.array(z.object({ court: z.string(), count: z.number().int() })),
+    byCountry: z.array(z.object({ country: z.string().nullable().describe('null: the CCJA, which has none'), count: z.number().int() })),
+    byYear: z.array(z.object({ year: z.number().int(), count: z.number().int() })),
 });

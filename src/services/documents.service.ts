@@ -9,6 +9,7 @@ import { env } from "../config/env";
 import { searchableDocuments } from "./search.service";
 import { HttpError } from "../utils/http-error";
 import type { ActCode } from "./citations/acts";
+import { regradeAllCitations } from "./citations/citations.service";
 
 export const refreshLexemeStats = () => db.execute(sql`REFRESH MATERIALIZED VIEW lexeme_stats`);
 
@@ -27,11 +28,9 @@ export const setDocumentAct = async (id: string, actCode: ActCode, actVersion: s
 
 export const ingestDocument = async (input: UploadDocumentInput) => {
   // Before the embeddings are paid for. A concurrent upload can still pass this; the UNIQUE constraint stops it (500).
-  if (input.actCode && input.actVersion) {
-    const [taken] = await db.select({ id: documents.id }).from(documents).where(and(
-      eq(documents.actCode, input.actCode), eq(documents.actVersion, input.actVersion), eq(documents.language, input.language)));
-    if (taken) throw new HttpError(409, `A document already holds ${input.actCode} ${input.actVersion} in this language: ${taken.id}`);
-  }
+  const [taken] = await db.select({ id: documents.id }).from(documents).where(and(
+    eq(documents.actCode, input.actCode), eq(documents.actVersion, input.actVersion), eq(documents.language, input.language)));
+  if (taken) throw new HttpError(409, `A document already holds ${input.actCode} ${input.actVersion} in this language: ${taken.id}`);
   const { totalPages, pages } = await extractPages(input.file);
   const drafts = chunkByArticle(pages);
   const embeddings = await embedDocuments(drafts.map(embeddingText));   // section path + content
@@ -53,6 +52,9 @@ export const ingestDocument = async (input: UploadDocumentInput) => {
   });
 
   await refreshLexemeStats();   // AFTER the commit, so it sees the new chunks
+  // Citations waiting for this version ("version_not_ingested") are graded again, and now link to its articles.
+  // If this throws, the document is stored: `npm run documents:set-act` with the same act and version repairs it.
+  await regradeAllCitations();
   return result;
 };
 

@@ -36,15 +36,20 @@ const by = (counts: Record<string, number>) =>
   Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(', ') || 'none';
 
 const LABEL: Record<Grade['verdict'], string> = {
-  correct: 'CORRECT', wrong_article: 'WRONG-ART', missed: 'MISSED', refused: 'REFUSED', answered: 'ANSWERED', error: 'ERROR',
+  correct: 'CORRECT', wrong_article: 'WRONG-ART', missed: 'MISSED', article_only: 'ART-ONLY',
+  refused: 'REFUSED', answered: 'ANSWERED', error: 'ERROR',
 };
 const NEEDS_REVIEW = new Set<Grade['verdict']>(['wrong_article', 'missed', 'answered', 'error']);
+const CAT: Record<EvalQuestion['category'], string> = { in_document: 'IN ', out_of_document: 'OUT', case_law: 'LAW' };
 
 function printLine(q: EvalQuestion, g: Grade, top: number | null) {
-  const cat = q.category === 'in_document' ? 'IN ' : 'OUT';
-  const detail = q.category === 'in_document'
-    ? `expects ${q.expected_articles?.join(',')}  cites ${g.citedArticles.join(',') || '-'}  retrieved=${g.retrieved ? 'yes' : 'no'}`
-    : `stopped=${g.stoppedAt ?? '-'}`;
+  const cat = CAT[q.category];
+  const articles = `expects ${q.expected_articles?.join(',') || '-'}  cites ${g.citedArticles.join(',') || '-'}`;
+  const detail = q.category === 'out_of_document'
+    ? `stopped=${g.stoppedAt ?? '-'}`
+    : q.category === 'case_law'
+      ? `case ${q.expected_case_numbers?.join(',')}  ${articles}  stopped=${g.stoppedAt ?? '-'}`
+      : `${articles}  retrieved=${g.retrieved ? 'yes' : 'no'}`;
   console.log(
     `${LABEL[g.verdict].padEnd(9)} #${String(q.id).padEnd(3)} ${q.language} ${cat} ${detail}  ` +
       `top=${top?.toFixed(3) ?? '-'}  ${g.model ?? '-'}  ${g.latencyMs ?? '-'}ms  ${usd(g.costUsd)}` +
@@ -102,6 +107,13 @@ async function main() {
     '(generation misses; the rest are retrieval misses)');
   console.log(`Out-of-document refused ${o.refused}/${o.total} (${pct(o.refused, o.total)}): ${by(o.refusedBy)}  ` +
     `answered ${o.answered}  errors ${o.errors}`);
+  const c = s.caseLaw;
+  if (c.total) {
+    console.log(`Case law        cites the decision ${c.correct}/${c.total}  article only ${c.articleOnly}  ` +
+      `wrong article ${c.wrongArticle}  missed: ${by(c.missedBy)}  errors ${c.errors}`);
+  }
+  console.log(`By category × language (success = correct / refused / correct or article only): ` +
+    Object.entries(s.byCategoryLanguage).map(([k, v]) => `${k} ${v.ok}/${v.total}`).join('  '));
   console.log(`Language        ${s.language.ok}/${s.language.answered} answers in the language of the question`);
   console.log(`Latency         mean ${s.latencyMs.mean ?? '-'}ms  p50 ${s.latencyMs.p50 ?? '-'}ms  p95 ${s.latencyMs.p95 ?? '-'}ms`);
   console.log(`Cost            total ${usd(s.cost.totalUsd)}  mean per LLM call ${usd(s.cost.meanPerLlmCallUsd)}  ` +
