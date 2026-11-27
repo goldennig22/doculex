@@ -10,6 +10,7 @@ import { env } from './config/env';
 import { documentRoutes } from './routes/documents';
 import { aiRoutes } from './routes/ai';
 import { decisionRoutes } from './routes/decisions';
+import { articleRoutes } from './routes/articles';
 import { errorHandler } from './utils/error-handler';
 import { zodSerializerCompiler, zodToJsonSchemaTransform, zodValidatorCompiler } from './utils/zod-fastify';
 import rateLimit from '@fastify/rate-limit'
@@ -51,6 +52,7 @@ export function buildApp(opts: { checks?: HealthChecks } = {}) {
         { name: 'ask', description: 'Cited answers' },
         { name: 'documents', description: 'The ingested Uniform Acts' },
         { name: 'decisions', description: 'Court decisions: contributed as drafts, searchable once a reviewer publishes them' },
+        { name: 'articles', description: 'Annotated code: an article and the published decisions that cite it' },
         { name: 'health', description: 'Service status' },
       ],
       components: {
@@ -69,6 +71,7 @@ export function buildApp(opts: { checks?: HealthChecks } = {}) {
     api.register(documentRoutes, { prefix: "/documents"});
     api.register(aiRoutes, { prefix: "/ai"});
     api.register(decisionRoutes, { prefix: '/decisions' });
+    api.register(articleRoutes, { prefix: '/articles' });
   }, { prefix: '/api' })
   return app;
 }

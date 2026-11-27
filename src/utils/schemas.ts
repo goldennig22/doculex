@@ -1,4 +1,6 @@
 import z from "zod";
+import { anonymisationStatus, decisionOutcome } from "../db/schema";
+import { ACTS, LINKABLE_ACT_CODES } from "../services/citations/acts";
 
 const isPdf = (b: Buffer) => b.subarray(0, 5).toString('latin1') === '%PDF-';
 export const uploadDocumentSchema = z.object({
@@ -6,6 +8,13 @@ export const uploadDocumentSchema = z.object({
     title: z.string().trim().min(3).max(200),
     language: z.enum(['fr', 'en']),
     sourceUrl: z.url().optional(),
+    actCode: z.enum(LINKABLE_ACT_CODES).optional()
+        .describe('Which act this statute is, so decisions citing it link to it: AUDCG, AUSCGIE, AUPSRVE…'),
+    actVersion: z.string().trim().optional().describe('The version of that act, by adoption year: "2010" for the revised AUDCG'),
+}).refine((b) => (b.actCode === undefined) === (b.actVersion === undefined), {
+    message: 'Send both actCode and actVersion, or neither', path: ['actVersion'],
+}).refine((b) => !b.actCode || ACTS[b.actCode].versions.some((v) => v.version === b.actVersion), {
+    message: 'Unknown version for this act (see src/services/citations/acts.ts)', path: ['actVersion'],
 })
 
 export const documentIdSchema = z.object({
@@ -42,6 +51,8 @@ export const documentSchema = z.object({
     language: z.string(),
     sourceUrl: z.string().nullable(),
     pageCount: z.number().int(),
+    actCode: z.string().nullable().describe('For a statute: the act it holds ("AUDCG"); null otherwise'),
+    actVersion: z.string().nullable().describe('For a statute: the version it holds ("2010"); null otherwise'),
     createdAt: z.date(),
 })
 
@@ -91,6 +102,134 @@ export const decisionSchema = z.object({
     sourceName: z.string(),
     sourceUrl: z.string().nullable(),
     extractionStatus: extractionStatusSchema,
+    anonymisationStatus: z.enum(anonymisationStatus.enumValues)
+        .describe('Detection of natural persons\' names: pending, done, or needs_manual_review (only the rules ran)'),
     chunkCount: z.number().int(),
     createdAt: z.date(),
 })
+
+// ── Review: names and metadata, then publish ──
+
+export const decisionIdSchema = z.object({
+    decisionId: z.uuid(),
+})
+
+const nullableText = (max: number) => z.string().trim().min(1).max(max).nullable();
+const PLACEHOLDER = /^[A-Z](?:[2-9]|[1-9]\d+)?$/; // same as PLACEHOLDER_FORMAT in anonymisation/mentions.ts
+
+export const mentionActionSchema = z.discriminatedUnion('action', [
+    z.object({ id: z.uuid(), action: z.literal('confirm') })
+        .describe('It is a natural person: keep the placeholder. The clear name is erased.'),
+    z.object({ id: z.uuid(), action: z.literal('not_a_person') })
+        .describe('Not a person (a company, a judge): the original text is put back and the mention deleted. Only before confirming.'),
+    z.object({ id: z.uuid(), action: z.literal('reassign'), placeholder: z.string().regex(PLACEHOLDER) })
+        .describe('Another person\'s letter (two people were merged, or one was split)'),
+]);
+
+export const reviewPatchSchema = z.object({
+    metadata: z.object({
+        title: z.string().trim().min(3).max(300),
+        court: nullableText(200),
+        country: z.string().trim().regex(/^[A-Za-z]{2}$/, 'ISO 3166-1 alpha-2 code, e.g. CM').transform((c) => c.toUpperCase()).nullable(),
+        chamber: nullableText(200),
+        caseNumber: nullableText(100),
+        decisionDate: z.iso.date().nullable(),
+        subject: nullableText(300),
+        outcome: z.enum(decisionOutcome.enumValues).nullable(),
+        headnote: nullableText(3000),
+    }).partial().strict().optional(),
+    mentions: z.array(mentionActionSchema).max(500).optional(),
+    addMentions: z.array(z.object({
+        surface: z.string().trim().min(2).max(200).describe('A name detection missed, as written; every occurrence is replaced and confirmed'),
+        placeholder: z.string().regex(PLACEHOLDER).optional().describe('An existing person\'s letter; a new one when left out'),
+    })).max(50).optional(),
+    anonymisationChecked: z.literal(true).optional()
+        .describe('After a failed detection (needs_manual_review): I read the whole text and every name is handled'),
+    status: decisionStatusSchema.optional()
+        .describe('in_review (only after a failed detection) or rejected; publishing has its own route'),
+}).strict().refine((p) => Object.values(p).some((v) => v !== undefined), {
+    message: 'Nothing to change',
+    path: ['status'], // a root-level issue would be missing from the 422's `errors`
+});
+
+export const mentionViewSchema = z.object({
+    id: z.uuid(),
+    placeholder: z.string(),
+    segment: z.string().describe('"caption", or the section: "faits", "moyen-1", "dispositif (part 2)"'),
+    start: z.number().int(),
+    end: z.number().int(),
+    context: z.string().describe('The anonymised text around the placeholder'),
+    original: z.string().nullable().describe('The clear name, until the mention is confirmed; null after'),
+    source: z.enum(['rule', 'llm', 'both', 'reviewer']).describe('Who found it; check "rule" and "llm" first, they disagreed'),
+    confirmed: z.boolean(),
+});
+
+export const reviewViewSchema = z.object({
+    id: z.uuid(),
+    documentId: z.uuid(),
+    title: z.string(),
+    language: langSchema,
+    status: decisionStatusSchema,
+    anonymisationStatus: z.enum(anonymisationStatus.enumValues),
+    extractionStatus: extractionStatusSchema,
+    court: z.string().nullable(),
+    country: z.string().nullable(),
+    chamber: z.string().nullable(),
+    caseNumber: z.string().nullable(),
+    decisionDate: z.string().nullable(),
+    subject: z.string().nullable(),
+    outcome: z.enum(decisionOutcome.enumValues).nullable(),
+    headnote: z.string().nullable(),
+    caption: z.string().nullable().describe('Anonymised; erased when the decision is published or rejected'),
+    sections: z.array(z.object({ ref: z.string(), part: z.number().int(), text: z.string() }))
+        .describe('The whole text, anonymised, in reading order'),
+    unconfirmedMentions: z.number().int(),
+    pendingEmbeddings: z.number().int().describe('Chunks whose text changed and are not embedded again yet; publish waits for 0'),
+    mentions: z.array(mentionViewSchema),
+    publishedAt: z.date().nullable(),
+})
+
+// ── Article pages ──
+
+// Same format as chunks.article_ref once normalised: "1er" → "1", "12BIS" → "12 bis"
+const ARTICLE_REF = /^(1er|premier|\d+(?:-\d+)?)(?:\s*(bis|ter|quater|quinquies|sexies|septies|octies))?$/i;
+
+export const articleParamsSchema = z.object({
+    documentId: z.uuid(),
+    articleRef: z.string().trim().max(30)
+        .regex(ARTICLE_REF, 'An article number, e.g. "7", "12 bis", "35-1", "1er"')
+        .transform((ref) => {
+            const m = ARTICLE_REF.exec(ref)!;
+            const n = /^(1er|premier)$/i.test(m[1]) ? '1' : m[1];
+            return m[2] ? `${n} ${m[2].toLowerCase()}` : n;
+        })
+        .describe('The article number as printed in the Act ("12 bis" is sent as 12%20bis)'),
+});
+
+export const articlePageSchema = z.object({
+    document: z.object({
+        id: z.uuid(), title: z.string(), language: z.string(),
+        actCode: z.string().nullable(), actVersion: z.string().nullable(),
+    }),
+    article: z.object({
+        articleRef: z.string(),
+        sectionPath: z.string().nullable(),
+        pageStart: z.number().int(),
+        pageEnd: z.number().int(),
+        text: z.string().describe('Every part of the article, joined in order'),
+        parts: z.array(z.object({ part: z.number().int(), content: z.string(), pageStart: z.number().int(), pageEnd: z.number().int() })),
+    }),
+    decisions: z.array(z.object({
+        id: z.uuid(),
+        documentId: z.uuid(),
+        title: z.string(),
+        court: z.string().nullable(),
+        country: z.string().nullable(),
+        caseNumber: z.string().nullable(),
+        decisionDate: z.string().nullable(),
+        outcome: z.string().nullable(),
+        headnote: z.string().nullable(),
+        citedAs: z.array(z.string()).describe('How the decision cites the article, as written in it'),
+        confidence: z.enum(['high', 'medium']).describe('high: the act is named next to the article; medium: inferred, or found by the LLM'),
+    })).describe('Published decisions citing this article, newest first (at most 50)'),
+});

@@ -19,11 +19,14 @@ vi.mock('../../src/services/embeddings.service', () => ({
   EMBEDDING_MODEL: 'test-model',
   DIMENSIONS: 1536,
 }));
-vi.mock('../../src/jobs/queue', () => ({ enqueueExtraction: vi.fn() }));
+vi.mock('../../src/jobs/queue', () => ({ enqueueExtraction: vi.fn(), enqueueAnonymisation: vi.fn(), enqueueEmbedding: vi.fn(), enqueueCitationLinking: vi.fn() }));
 
 const DIMS = 1536;
 const axis = (i: number) => Array.from({ length: DIMS }, (_, j) => (j === i ? 1 : 0));
-const JUDGMENT = [CAPTION, ...[...CHUNKS].reverse().map((c) => c.content)].join('\n');
+// In reading order: CHUNKS is deliberately shuffled, and reversing it put "faits" before "procedure", so no
+// procedure section was found and the loadForExtraction test failed
+const READING_ORDER = ['procedure', 'faits', 'moyen-1', 'dispositif'];
+const JUDGMENT = [CAPTION, ...READING_ORDER.map((ref) => CHUNKS.find((c) => c.articleRef === ref)!.content)].join('\n');
 const TITLE = 'CCJA, arrêt de test (extraction)';
 
 const AI: DecisionMetadata = {
@@ -91,7 +94,7 @@ describe.skipIf(!process.env.RUN_DB_TESTS)('decision extraction against Postgres
     expect(await loadForExtraction('00000000-0000-4000-8000-000000000000')).toBeNull();
   });
 
-  it('fills empty fields, never overwrites what the contributor typed, marks generated_by ai, clears the caption', async () => {
+  it('fills empty fields, never overwrites what the contributor typed, marks generated_by ai, keeps the caption', async () => {
     const stored = await upload({ chamber: 'Chambre saisie par le contributeur' });
 
     expect(await saveExtraction(stored.id, AI)).toBe(true);
@@ -100,8 +103,10 @@ describe.skipIf(!process.env.RUN_DB_TESTS)('decision extraction against Postgres
     expect(row).toMatchObject({
       court: 'CCJA', chamber: 'Chambre saisie par le contributeur', caseNumber: 'Arrêt N° 045/2019',
       decisionDate: '2019-02-28', outcome: 'rejet', subject: AI.subject, headnote: AI.headnote, country: null,
-      generatedBy: 'ai', extractionStatus: 'done', extractionError: null, captionText: null,
+      generatedBy: 'ai', extractionStatus: 'done', extractionError: null,
     });
+    // The anonymisation job reads it and the reviewer needs it; publish or reject erases it
+    expect(row.captionText).toContain('Arrêt N° 045/2019');
   });
 
   it('keeps generated_by reviewer when the AI filled nothing new', async () => {
@@ -144,7 +149,10 @@ describe.skipIf(!process.env.RUN_DB_TESTS)('decision extraction against Postgres
   it('the database refuses to publish a decision that still has its caption', async () => {
     const stored = await upload({ court: 'CCJA' });
     const publish = (captionText?: null) => db.update(decisions)
-      .set({ status: 'published', publishedAt: new Date(), reviewedBy: reviewerId, decisionDate: '2019-02-28', ...(captionText === null ? { captionText } : {}) })
+      .set({
+        status: 'published', publishedAt: new Date(), reviewedBy: reviewerId, decisionDate: '2019-02-28',
+        anonymisationStatus: 'done', ...(captionText === null ? { captionText } : {}),
+      })
       .where(eq(decisions.id, stored.id));
 
     await expect(publish()).rejects.toThrow();

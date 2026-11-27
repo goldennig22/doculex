@@ -13,6 +13,10 @@ const EnvSchema = z.object({
   GEMINI_API_KEY: z.string().optional(),
   ANTHROPIC_API_KEY: z.string().optional(),
   ADMIN_API_KEY: z.string().min(32),
+  // Keys the HMAC of each anonymised name (name_mentions.original_hash). Kept outside the database, so a database
+  // leak alone can't reverse the hashes by trying every surname. Changing it breaks the publish-time leak check
+  // of the decisions still in review.
+  ANONYMISATION_HMAC_KEY: z.string().min(32),
   EMBEDDING_MODEL: z.string(),
   EMBEDDING_PARALLEL_CALLS: z.coerce.number().default(2),
   LLM_MODEL: z.string(),

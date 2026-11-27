@@ -21,6 +21,8 @@
     "documents:evaluate-retrieval": "npx tsx src/scripts/eval-retrieval.ts",
     "documents:evaluate-answers": "npx tsx src/scripts/eval-answers.ts",
     "decisions:evaluate-extraction": "npx tsx src/scripts/eval-extraction.ts",
+    "decisions:evaluate-anonymisation": "npx tsx src/scripts/eval-anonymisation.ts",
+    "documents:set-act": "tsx src/scripts/set-document-act.ts",
     "keys:create": "tsx src/scripts/create-api-key.ts",
     "exam": "npx tsx src/scripts/test.ts"
   },

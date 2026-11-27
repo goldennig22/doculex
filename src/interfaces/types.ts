@@ -1,5 +1,6 @@
 import type { z } from 'zod';
 import type { askResponseSchema, citationSchema, langSchema } from '../utils/schemas';
+import type { ActCode } from '../services/citations/acts';
 
 export type PageText = { page: number; text: string };
 
@@ -8,6 +9,8 @@ export type UploadDocumentInput = {
     title: string,
     language: 'fr'|'en',
     sourceUrl?: string|null,
+    actCode?: ActCode,
+    actVersion?: string,
 }
 
 export type ChunkDraft = {

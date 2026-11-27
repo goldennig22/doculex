@@ -191,14 +191,21 @@ How to read latency and cost: the script calls the pipeline directly from a deve
 | **`ORDER BY distance`, not `similarity DESC`** | Postgres only uses the HNSW index when sorting by the distance operator itself. |
 | **Vector-only in v1** | Measured: every hybrid setting scored lower (see Results). |
 | **API keys stored as SHA-256, with roles (admin > reviewer > contributor)** | A database leak gives no usable key. SHA-256, not bcrypt: a 256-bit random key cannot be guessed, and a deterministic hash can be looked up by index. The key is shown once by `npm run keys:create`. 401 = unknown or revoked key, 403 = valid key, role too low. The legacy `ADMIN_API_KEY` (compared with `timingSafeEqual`) still works on the statute routes until it is retired. |
-| **Decisions chunked by section, one chunk per ground of appeal (moyen)** | A judgment has no "Article N". A size-based cut can separate a party's grievance from the court's answer, and the LLM would then present the losing argument as the holding. The last "PAR CES MOTIFS" is the dispositif (earlier ones quote the lower court). Costs are not stored. The caption (party names, but also court, case number and date) is never chunked or searchable; it is kept in `decisions.caption_text` only until AI extraction succeeds or a reviewer publishes or rejects the decision, then set to NULL. A CHECK constraint forbids a published decision with a caption. |
+| **Decisions chunked by section, one chunk per ground of appeal (moyen)** | A judgment has no "Article N". A size-based cut can separate a party's grievance from the court's answer, and the LLM would then present the losing argument as the holding. The last "PAR CES MOTIFS" is the dispositif (earlier ones quote the lower court). Costs are not stored. The caption (party names, but also court, case number and date) is never chunked or searchable; it is kept in `decisions.caption_text` (anonymised like any chunk: it lists the parties, so detection reads it, and the reviewer needs it) until a reviewer publishes or rejects the decision, then set to NULL. A CHECK constraint forbids a published decision with a caption. |
 | **Unpublished decisions are filtered inside every SQL query** | One predicate (`searchableDocuments`) used by vector search, keyword search, `getArticleParts`, the public document routes and `lexeme_stats`. Filtering after the search would still let a draft take a top-5 place and set `topSimilarity`. A DB test gives a draft similarity 1.0 and checks no search returns it. `/ask` stays statutes-only until an eval with published decisions. |
 | **Upload limits in multipart, PDF checked by magic bytes** | The 20 MB limit stops reading before buffering; the client's `mimetype` can be faked, `%PDF-` cannot. |
 | **Zod schemas on the routes, converted for OpenAPI (no `zod-to-json-schema`, no type-provider package)** | One definition validates the request, checks the response and generates the docs, so they can't drift apart. Zod 4 converts to JSON Schema itself; the glue is ~60 lines (`src/utils/zod-fastify.ts`). A response that breaks its schema is a 500 (our bug), never a 422. |
 | **Decision metadata extracted by an LLM in a background job (pg-boss), not in the upload request** | The fallback chain can take ~90 s, longer than nginx waits, and a provider outage would turn a stored upload into a 500. pg-boss keeps the queue in the same Postgres (no Redis), so the job is sent inside the upload's transaction (`fromDrizzle`): no decision without its job, and no job that runs before its decision is committed. Provider errors retry (3, with backoff); a job that fails every retry goes to a dead-letter queue that marks the decision `needs_manual_entry`. |
 | **The extraction job is idempotent** | pg-boss runs a job at least once: it can run twice if it expires while still running or the process dies before completion is recorded. The job skips a decision that is no longer `pending`, and writes with `UPDATE … WHERE extraction_status = 'pending'`: two overlapping runs may both pay for the LLM, but only one writes. No transaction is held open across the LLM call. |
 | **Extracted fields must quote the decision** | Same discipline as `/ask`: each field comes with a quote, checked verbatim against the text sent; a date must match its quote (`10/05/2016` is 10 May); every digit of a case number must be in its quote; the CCJA never gets a country. A failing field becomes null, the others are kept. Invalid output (`NoObjectGeneratedError`) marks the decision for manual entry instead of retrying. What it can't catch, a real quote from the wrong passage (the pourvoi date), is what the extraction eval measures. |
+| **Natural persons anonymised before publication: rules, then an LLM, then a person** | Cameroon's personal data law (Law No. 2024/017) is in force since 23 June 2026, and a party's name in a published decision is DocuLex's biggest legal risk. A background job (`anonymise-decision`, enqueued in the upload's transaction) runs two passes. **Rules** (a title or marker, then capitalised words: `M.`, `Mme`, `Monsieur`, `Maître`, `le sieur`, `Dame`, `le nommé`, `Mr`, `Mrs`, `Ets`…) are free and deterministic but blind to a bare name such as *« TCHOUPO, émancipé… »* in a quote. An **LLM** lists the persons, but is not trusted: it returns names verbatim, never offsets (a model counts tokens, not UTF-16 units, and an "almost right" offset publishes *Dame XA*), and a form not found in the text is dropped. The union is kept; every form of every person, including the upper-case surname derived from `TCHOUPO Jean-Marie`, is searched in every section, longest first (so `TCHOUPO` never splits `TCHOUPO Jean-Marie` into `X Jean-Marie`). Companies, the State, courts, and judges and clerks sitting in the case stay named; lawyers, notaries and the trader behind `Établissements KAMGA` (no legal personality of its own) do not. If the LLM fails, the rules still apply and the decision needs a manual review. |
+| **Stable placeholders, one row per mention, the clear name erased on confirmation** | The same person is `X` everywhere in a decision, the next `Y`, in order of first appearance. The chunk text holds the placeholder from the moment detection runs; `name_mentions.original_text` holds the clear name only until a reviewer confirms the mention (a CHECK forbids a confirmed mention with a clear name). Offsets point at the placeholders and move when an earlier mention of the same text is edited (`replaceSpan`, the only code that edits such a text); reviews lock the decision row, so two reviewers can't corrupt each other's offsets. A chunk whose text changed loses its embedding (a vector computed from the clear names is derived from personal data), and a re-embedding job is sent in the same transaction. |
+| **Names hashed with an HMAC, keyed and scoped to the decision** | Not plain SHA-256 as for API keys: a key is 256 random bits, a name is not, and hashing every surname of a list reverses an unkeyed hash in seconds. The key (`ANONYMISATION_HMAC_KEY`) lives outside the database, and the decision id is part of the message, so the same person in two decisions can't be linked. The hash is what makes the **leak check** possible: at publish, every 1–6-word sequence of every published field (title, headnote, subject, sections, section paths) is hashed and looked up, which catches the headnote the extraction LLM wrote from the clear text without ever storing the name. |
+| **Review flow: draft → in_review → published \| rejected, anything else 409** | The detection job moves a draft to `in_review`. `PATCH /api/decisions/:id` (reviewer) fixes metadata and confirms, puts back (`not_a_person`), reassigns or adds mentions, all or nothing. `POST /api/decisions/:id/publish` refuses with 409 until detection is done, every mention is confirmed, court and date are set, every chunk is embedded again and no hashed name is left; then it erases the caption. Zero mentions before detection would look like "nothing left to confirm", so a CHECK also forbids publishing a decision whose detection is not `done`. Nobody reviews their own upload: checked in the service (403), not left to the CHECK (a 500). |
 | **AI never overwrites a person** | Each column is written `COALESCE(column, ai_value)`: what the contributor typed wins. `generated_by` becomes `ai` only if the AI filled at least one empty field (so a row can be mixed; per-field tracking can come with the review step). `outcome` is an enum (`cassation`, `rejet`, `irrecevabilite`…) so French and English decisions can be filtered alike. |
+| **Citations stored as (act, version, article), not as a document or chunk id** | Article numbers belong to a *version* of an Act: AUDCG 1997 and 2010 number commercial leases differently (arts. 69–102 vs 101–134), so a 2008 decision's "article 7 de l'AUDCG" is not the 2010 article 7. A document id dies when a statute is deleted and uploaded again; chunk ids are recreated on re-ingest and differ per part. A statute declares what it holds (`documents.act_code`, `act_version`, set at upload or with `npm run documents:set-act`), and the article page joins on that. The version is the one named in the text ("du 17 avril 1997", "révisé"), otherwise the one in force on the decision date; less than 5 years after a revision it is only `medium` (the old version may govern the facts). |
+| **Citation detection by rules first, in two passes** | Pass 1 lists every act named in the decision (abbreviations in upper case, titles by keyword so "relatif au droit des sociétés commerciales" without the GIE still matches, out-of-corpus texts like the Code civil so they are never guessed as the next article's act). Pass 2 reads each "article(s)" with its list ("13, 14 et 15"), range ("13 à 15", capped at 30; the hyphen in "35-1" is a sub-number) and qualifiers ("alinéa 2" is never an article), then attaches the act in a fixed order: named right after, "du même Acte uniforme", "susvisé" (the earlier citation of the same article), "en son article", then the last act of the paragraph (a guess, so `medium`). A title it doesn't know stays unresolved rather than taking the paragraph's act. Matching runs on a folded copy of the text with the *same length* (no NFD: it shifts every offset after an accent). |
+| **An LLM only for references the rules can't resolve, picking from a closed list** | It gets each unresolved reference with its paragraph (anonymised text: the job is enqueued by the anonymisation job), and answers an act code from a `z.enum`, never an article number or a document id, plus the words that name the act. Kept only if the quote is verbatim in that excerpt *and* our own act table reads the same act in it; "l'Acte uniforme" alone names nothing. The rules' links are saved before the call, so a provider outage loses nothing. Every link is stored, unresolved ones as `low` for review; the public article page shows `high` and `medium` links of published decisions only (`searchableDocuments`). The publish step grades the links again with the final date. |
 | **LLM always mocked in tests** | Tests stay fast, free and deterministic; quality is measured separately by the eval scripts. |
 | **Two refusal layers** | The threshold is free and stops clear noise; the LLM catches near misses the threshold can't separate (see the relevance threshold above). |
 | **Citations by source number + quote verification** | The model cites `source: 1`, never an article number it could invent; the server maps it to document, article and pages, and drops any quote not found in that source. |
@@ -223,6 +230,8 @@ How to read latency and cost: the script calls the pipeline directly from a deve
 - **The admin key was checked after the upload was read.** The key check ran in `preHandler`, but `@fastify/multipart` parses the body earlier, in `preValidation`, so anyone could make the server buffer a 20 MB upload before getting a 401. A malformed body even returned a 500. The test called "401 before reading the body" never checked the second half of its name; a new test sends a broken multipart body without a key and expects 401. The check now runs in `onRequest`.
 - **English questions answered in French.** The answer eval caught 10 of them, including questions about the English Act. The prompt asked for "the language of the question", but the server, which already detects it, never said which one it was. Passing the detected language in the prompt took the eval from 21 / 31 to 30 / 31 answers in the right language.
 - **An empty quote passed verification:** `"any text".includes("")` is `true`. Caught while writing the unit tests, before any real traffic.
+- **A test fixture that could never pass.** The extraction DB test built its judgment from the fixture's chunks in reverse order, which put the facts before the procedure, so no procedure section existed and the test failed on a fresh database. Found when the CI-like run was repeated locally for Weekend 10.
+- **"Anything else is a 409" had a hole.** `PATCH { status: "draft" }` on a draft returned 200: the service checked only the statuses it expected. The illegal-transition test caught it; every requested status now goes through `assertTransition`.
 - **Vitest on Windows** loaded itself twice when the project was opened as `c:\` instead of `C:\`, and every suite failed with `Cannot read properties of undefined (reading 'config')`.
 
 ---
@@ -236,10 +245,14 @@ All routes are under `/api`. Responses use one shape: `{ status: "success", data
 | Method + path | Auth | Description |
 | --- | --- | --- |
 | `GET /api/health` | None | Database (pgvector installed) and LLM provider status; `503` if the database is down, `degraded` if only the LLM is |
-| `POST /api/documents/upload` | `x-api-key` | Multipart: `file` (PDF, max 20 MB), `title`, `language` (`fr`\|`en`), `sourceUrl?` → stored document |
+| `POST /api/documents/upload` | `x-api-key` | Multipart: `file` (PDF, max 20 MB), `title`, `language` (`fr`\|`en`), `sourceUrl?`, `actCode?` + `actVersion?` (e.g. `AUDCG` + `2010`, both or neither) → stored document; `409` if a document already holds that act version in that language |
+| `GET /api/articles/:documentId/:articleRef` | None | An article (every part) and the published decisions citing it, newest first, with court, date, headnote and how each cites it; `12 bis` is sent as `12%20bis` (`1er` works); `404` unknown article or not a statute, `422` invalid ref |
 | `GET /api/documents` | None | List documents |
 | `GET /api/documents/:documentId/show` | None | One document; `422` if the id isn't a uuid, `404` if no such document |
 | `DELETE /api/documents/:documentId/delete` | `x-api-key` | Delete a document and its chunks; `422` if the id isn't a uuid, `404` if no such document |
+| `GET /api/decisions/:decisionId` | Reviewer key | A decision for review: metadata, the whole anonymised text, each name mention with its context and, until confirmed, the clear name |
+| `PATCH /api/decisions/:decisionId` | Reviewer key | `{ metadata?, mentions?: [{ id, action: confirm \| not_a_person \| reassign }], addMentions?, anonymisationChecked?, status?: in_review \| rejected }`; `403` own upload, `409` illegal transition or published/rejected decision |
+| `POST /api/decisions/:decisionId/publish` | Reviewer key | `409` while detection is pending, a mention is unconfirmed, court/date is missing, a section is being re-embedded, or an anonymised name is still in a published field |
 | `POST /api/ai/ask` | None | `{ question }` (3–1000 characters) → `{ found, answer, citations[], confidence, language }`; `422` invalid, `429` over 10 requests / minute / IP |
 
 ```bash
@@ -277,6 +290,7 @@ curl -X POST http://localhost:3000/api/documents/upload \
 | Variable | Required | Description |
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | e.g. `postgres://doculex:doculex@localhost:5433/doculex` |
+| `ANONYMISATION_HMAC_KEY` | Yes | At least 32 characters (`openssl rand -hex 32`). Keys the hashes of anonymised names; never change it while decisions are in review, or their leak check stops matching |
 | `ADMIN_API_KEY` | Yes | At least 32 characters. Legacy admin key for the statute routes, until it is replaced by keys from `npm run keys:create -- --role admin --label "…"` |
 | `EMBEDDING_MODEL` | Yes | Embedding model id |
 | `GEMINI_API_KEY` | Yes | Embeddings, and the last fallback model |
@@ -305,11 +319,13 @@ The model names must match the keys of `src/config/prices.ts`, or `cost_usd` is 
 | `npm run documents:evaluate-retrieval -- --mode vector` | Retrieval evaluation (`vector` \| `keyword` \| `hybrid`, `--kw-weight`, `--same-lang`) |
 | `npm run documents:evaluate-answers` | Answer evaluation through the real `/ask` pipeline (`--ids 1,2`, `--show-all`, `--out file.json`). Calls the LLM: costs money, and writes to `queries` |
 | `npm run documents:embed-missing` | Embed chunks that have no vector yet |
+| `npm run documents:set-act -- --document <uuid> --act AUDCG --version 2010` | Says which act version a statute already uploaded holds, then grades every decision's citations again |
+| `npm run decisions:evaluate-anonymisation` | Name detection evaluation on hand-labelled decisions in `eval/persons.local.json` (gitignored: real names): recall of name occurrences for rules only, LLM only and both, plus wrongly hidden and extra mentions (`--ids`, `--out` writes counts only). Calls the LLM: costs money |
 | `npm run decisions:evaluate-extraction` | Metadata extraction evaluation on the hand-labelled `eval/decisions.json`: per field correct / missed / invented / wrong (`--ids`, `--judge` to grade subjects y/n, `--out`). Calls the LLM: costs money |
 
 ### Tests
 
-95 test cases. The LLM and the embedding provider are always mocked; only the eval scripts call them for real.
+323 test cases. The LLM and the embedding provider are always mocked; only the eval scripts call them for real.
 
 | Suite | Tests | Covers |
 | --- | --- | --- |
@@ -322,6 +338,10 @@ The model names must match the keys of `src/config/prices.ts`, or `cost_usd` is 
 | Upload route | 7 | `401`, `422`, `413`, `201`, `500` without internals |
 | Delete route | 3 | `422`, `404`, `200` |
 | Health | 3 | `ok`, `degraded`, `503` |
+| Anonymisation (pure) | 65 | Rules (titles, functions, companies, sole traders, judges), derived surnames, Unicode boundaries, stable placeholders, a quoted name with no title, longest form first, `replaceSpan` offsets, HMAC, leak check, all 16 status transitions |
+| Anonymisation job | 9 | LLM mocked: names replaced, no name in the job output, rules only on bad output, retry on provider errors, idempotent |
+| Review routes | 20 | `401`/`403` per route, `422` bodies, `409` passed on |
+| Review against Postgres | 22 | Detection, mentions and hashes, publish refused with unconfirmed mentions, illegal transitions, reject, `not_a_person` offsets, `addMentions`, four eyes, and a leak test: no fixture party name in any published API response, with a check that every `/api` route is scanned or exempt with a reason |
 
 Locally, the integration tests need their own database (never the dev one: they insert fixtures and rank over every chunk):
 
@@ -343,11 +363,12 @@ src/
   controllers/   validate input, call services, shape responses
   services/      chunker, documents (ingest), embeddings, search, ask (pipeline + fallback),
                  answer (prompt, schema, quote verification), queries (log), health
-  jobs/          pg-boss queue (started by server.ts) and the extract-decision job
+  jobs/          pg-boss queue (started by server.ts): extract-decision, anonymise-decision, embed-decision
   middleware/    requireRole (API keys with roles)
   config/        env (Zod-validated), prices per model
   db/            Drizzle schema and client
-  scripts/       eval-retrieval, eval-answers (+ lib/answer-grading), eval-extraction (+ lib/extraction-grading), embed-missing
+  scripts/       eval-retrieval, eval-answers (+ lib/answer-grading), eval-extraction (+ lib/extraction-grading),
+                 eval-anonymisation (+ lib/anonymisation-grading), embed-missing
   utils/         Zod schemas, validator, response helpers, error handler
 drizzle/         SQL migrations (including the custom pgvector and lexeme_stats ones)
 eval/            questions.json (answers) and decisions.json (extraction): the evaluation sets
@@ -371,8 +392,8 @@ test/            Vitest suites: api/ (routes), services/, scripts/
 
 **Phase 2 (v2, December–January)**
 
-- Court decisions (CCJA and Cameroonian courts): ~~upload~~, ~~LLM metadata extraction in a background job~~ (Weekend 9: label `eval/decisions.json` and run the extraction eval), human review, anonymisation of personal names
-- Links from each article to the decisions that cite it; filtered case-law search
+- Court decisions (CCJA and Cameroonian courts): ~~upload~~, ~~LLM metadata extraction in a background job~~ (Weekend 9: label `eval/decisions.json` and run the extraction eval), ~~human review~~, ~~anonymisation of personal names~~ (Weekend 10: label `eval/persons.local.json` and run the anonymisation eval)
+- ~~Links from each article to the decisions that cite it~~ (Weekend 11: set the act of the two ingested statutes with `documents:set-act`, then label citations for an eval); filtered case-law search
 
 **Not planned for v1:** user accounts, a polished frontend (a separate Next.js app comes in Phase 3), re-ranking models, OCR for scanned PDFs.
 

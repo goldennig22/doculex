@@ -16,7 +16,7 @@ vi.mock('../../src/services/embeddings.service', () => ({
   DIMENSIONS: 1536,
 }));
 // ingestDecision enqueues the extraction job in its transaction; pg-boss's schema isn't in the test database
-vi.mock('../../src/jobs/queue', () => ({ enqueueExtraction: vi.fn() }));
+vi.mock('../../src/jobs/queue', () => ({ enqueueExtraction: vi.fn(), enqueueAnonymisation: vi.fn(), enqueueEmbedding: vi.fn(), enqueueCitationLinking: vi.fn() }));
 
 const DIMS = 1536;
 /** Two different axes have similarity 0; the same axis has similarity 1. */
@@ -106,17 +106,24 @@ describe.skipIf(!process.env.RUN_DB_TESTS)('unpublished decisions are invisible 
 
   it('the database refuses to publish an unreviewed or incomplete decision', async () => {
     const publish = (values: Partial<typeof decisions.$inferInsert>) =>
-      // captionText: null, as a real publish does: each case must fail for its own reason, not the caption
-      db.update(decisions).set({ status: 'published', publishedAt: new Date(), captionText: null, ...values }).where(eq(decisions.id, decisionId));
+      // No caption and detection done, as a real publish has: each case must fail for its own reason
+      db.update(decisions)
+        .set({ status: 'published', publishedAt: new Date(), captionText: null, anonymisationStatus: 'done', ...values })
+        .where(eq(decisions.id, decisionId));
 
     await expect(publish({ court: 'CCJA', decisionDate: '2019-02-28' })).rejects.toThrow(); // no reviewer
     await expect(publish({ reviewedBy: reviewerId })).rejects.toThrow(); // no court, no date
     await expect(publish({ reviewedBy: contributorId, court: 'CCJA', decisionDate: '2019-02-28' })).rejects.toThrow(); // own upload
+    await expect(publish({ reviewedBy: reviewerId, court: 'CCJA', decisionDate: '2019-02-28', anonymisationStatus: 'pending' }))
+      .rejects.toThrow(); // names never detected
   });
 
   it('once published, it is searchable, but /ask (statutes only) still never sees it', async () => {
     await db.update(decisions)
-      .set({ status: 'published', publishedAt: new Date(), reviewedBy: reviewerId, court: 'CCJA', decisionDate: '2019-02-28', captionText: null })
+      .set({
+        status: 'published', publishedAt: new Date(), reviewedBy: reviewerId, court: 'CCJA', decisionDate: '2019-02-28',
+        captionText: null, anonymisationStatus: 'done',
+      })
       .where(eq(decisions.id, decisionId));
 
     vi.mocked(embedQuery).mockResolvedValue(axis(DECISION_AXIS));

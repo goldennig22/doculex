@@ -7,6 +7,8 @@ import { and, eq, sql } from "drizzle-orm";
 import { embedDocuments } from "./embeddings.service";
 import { env } from "../config/env";
 import { searchableDocuments } from "./search.service";
+import { HttpError } from "../utils/http-error";
+import type { ActCode } from "./citations/acts";
 
 export const refreshLexemeStats = () => db.execute(sql`REFRESH MATERIALIZED VIEW lexeme_stats`);
 
@@ -16,14 +18,30 @@ export const extractPages = async (file: Buffer): Promise<{ totalPages: number; 
   return { totalPages, pages: text.map((t, i) => ({ page: i + 1, text: t })) };
 };
 
+/** Sets which act version a statute holds (npm run documents:set-act). false when no statute has this id. */
+export const setDocumentAct = async (id: string, actCode: ActCode, actVersion: string): Promise<boolean> => {
+  const updated = await db.update(documents).set({ actCode, actVersion })
+    .where(and(eq(documents.id, id), eq(documents.kind, 'statute'))).returning({ id: documents.id });
+  return updated.length > 0;
+};
+
 export const ingestDocument = async (input: UploadDocumentInput) => {
+  // Before the embeddings are paid for. A concurrent upload can still pass this; the UNIQUE constraint stops it (500).
+  if (input.actCode && input.actVersion) {
+    const [taken] = await db.select({ id: documents.id }).from(documents).where(and(
+      eq(documents.actCode, input.actCode), eq(documents.actVersion, input.actVersion), eq(documents.language, input.language)));
+    if (taken) throw new HttpError(409, `A document already holds ${input.actCode} ${input.actVersion} in this language: ${taken.id}`);
+  }
   const { totalPages, pages } = await extractPages(input.file);
   const drafts = chunkByArticle(pages);
   const embeddings = await embedDocuments(drafts.map(embeddingText));   // section path + content
 
   const result = await db.transaction(async (tx) => {
     const [doc] = await tx.insert(documents)
-      .values({ title: input.title, language: input.language, sourceUrl: input.sourceUrl, pageCount: totalPages })
+      .values({
+        title: input.title, language: input.language, sourceUrl: input.sourceUrl, pageCount: totalPages,
+        actCode: input.actCode, actVersion: input.actVersion,
+      })
       .returning({ id: documents.id });
     if (drafts.length) {
       await tx.insert(chunks).values(drafts.map((c, i) => ({

@@ -102,7 +102,7 @@ describe('POST /api/documents/upload', () => {
     vi.mocked(findActiveKey).mockResolvedValueOnce({ id: DOC_ID, role: 'admin', label: 'admin-1' });
     vi.mocked(ingestDocument).mockResolvedValueOnce({ documentId: DOC_ID, chunkCount: 1 });
     vi.mocked(getDocuments).mockResolvedValueOnce({
-      id: DOC_ID, kind: 'statute', title: 'AUDCG 2010', language: 'fr', sourceUrl: null, pageCount: 66, createdAt: new Date(),
+      id: DOC_ID, kind: 'statute', title: 'AUDCG 2010', language: 'fr', sourceUrl: null, pageCount: 66, actCode: null, actVersion: null, createdAt: new Date(),
     });
     const res = await upload(validFields(), generateApiKey().plaintext);
     expect(res.statusCode).toBe(201);
@@ -135,6 +135,8 @@ describe('POST /api/documents/upload', () => {
       language: 'fr',
       sourceUrl: null,
       pageCount: 66,
+      actCode: 'AUDCG',
+      actVersion: '2010',
       createdAt: new Date('2026-10-28T10:00:00Z'),
     });
 
@@ -150,6 +152,8 @@ describe('POST /api/documents/upload', () => {
         language: 'fr',
         sourceUrl: null,
         pageCount: 66,
+        actCode: 'AUDCG',
+        actVersion: '2010',
         createdAt: '2026-10-28T10:00:00.000Z', // a Date becomes an ISO string in JSON
       },
     });

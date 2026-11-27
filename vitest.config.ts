@@ -12,6 +12,7 @@ export default defineConfig({
       // Without TEST_DATABASE_URL, a dummy that only the RUN_DB_TESTS suites would ever try to reach.
       DATABASE_URL: process.env.TEST_DATABASE_URL ?? 'postgres://test:test@localhost:5433/test',
       ADMIN_API_KEY: 'b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9',
+      ANONYMISATION_HMAC_KEY: 'test-only-hmac-key-0123456789abcdef0123456789abcdef',
       EMBEDDING_MODEL: 'test-embedding',
       LLM_MODEL: 'test-primary',
       LLM_2ND_MODEL: 'test-second',

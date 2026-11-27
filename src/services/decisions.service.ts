@@ -1,5 +1,5 @@
 import type { z } from 'zod';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import { db } from '../db/client';
 import { chunks, decisions, documents } from '../db/schema';
 import { env } from '../config/env';
@@ -9,7 +9,7 @@ import { HttpError } from '../utils/http-error';
 import { embeddingText } from './chunker.service';
 import { chunkDecision, findCaption } from './decision-chunker.service';
 import type { ChunkText, DecisionMetadata } from './decision-extraction.service';
-import { enqueueExtraction } from '../jobs/queue';
+import { enqueueAnonymisation, enqueueExtraction } from '../jobs/queue';
 import { embedDocuments } from './embeddings.service';
 import { extractPages } from './documents.service';
 
@@ -60,8 +60,10 @@ export async function ingestDecision(input: CreateDecisionInput, contributorId: 
       embedding: embeddings[i], embeddingModel: env.EMBEDDING_MODEL,
     })));
 
-    // Same transaction: the job exists only if the decision does, and no worker sees it before the commit
+    // Same transaction: the jobs exist only if the decision does, and no worker sees them before the commit.
+    // They run side by side; neither needs the other's result (extraction reads the caption, which detection keeps).
     await enqueueExtraction(decision.id, tx);
+    await enqueueAnonymisation(decision.id, tx);
 
     return {
       id: decision.id,
@@ -77,19 +79,25 @@ export async function ingestDecision(input: CreateDecisionInput, contributorId: 
       sourceName: decision.sourceName,
       sourceUrl: decision.sourceUrl,
       extractionStatus: decision.extractionStatus,
+      anonymisationStatus: decision.anonymisationStatus,
       chunkCount: drafts.length,
       createdAt: decision.createdAt,
     };
   });
 }
 
+/**
+ * Pages in NFC: a PDF can give "É" as E + U+0301 (two UTF-16 units), and the offsets of name mentions, the LLM's
+ * verbatim forms and the leak check must all see one spelling.
+ */
 async function readDecision(input: CreateDecisionInput): Promise<{ pages: PageText[]; pageCount: number }> {
+  const nfc = (pages: PageText[]) => pages.map((p) => ({ ...p, text: p.text.normalize('NFC') }));
   if (input.file) {
     const { totalPages, pages } = await extractPages(input.file);
-    return { pages, pageCount: totalPages };
+    return { pages: nfc(pages), pageCount: totalPages };
   }
   // The schema guarantees exactly one of file or text; pasted text has no pages, so it is "page 1"
-  return { pages: [{ page: 1, text: input.text ?? '' }], pageCount: 1 };
+  return { pages: nfc([{ page: 1, text: input.text ?? '' }]), pageCount: 1 };
 }
 
 // ── AI metadata extraction (used by src/jobs/extract-decision.job.ts) ──────────────────────────────
@@ -137,7 +145,8 @@ const param = (value: string | null, type: 'text' | 'date' | 'decision_outcome')
  * Writes the AI's metadata, once. Two rules, both in the one UPDATE:
  *   - AI never overwrites a person: each column keeps its value when it has one (COALESCE);
  *   - only a 'pending' decision is written: a second run of the job (pg-boss is at-least-once) changes nothing.
- * generated_by becomes 'ai' only if the AI filled at least one empty column. The caption is cleared: its job is done.
+ * generated_by becomes 'ai' only if the AI filled at least one empty column. The caption is kept: the anonymisation
+ * job reads it (it lists the parties) and the reviewer needs it; publish or reject clears it.
  * Returns false when the decision was no longer pending (another run won, or it was deleted).
  */
 export async function saveExtraction(decisionId: string, m: DecisionMetadata): Promise<boolean> {
@@ -162,7 +171,6 @@ export async function saveExtraction(decisionId: string, m: DecisionMetadata): P
       generatedBy: sql`case when ${aiFilledOne} then 'ai'::generated_by else ${decisions.generatedBy} end`,
       extractionStatus: 'done',
       extractionError: null,
-      captionText: null,
     })
     .where(and(eq(decisions.id, decisionId), eq(decisions.extractionStatus, 'pending')))
     .returning({ id: decisions.id });
@@ -180,4 +188,37 @@ export async function markNeedsManualEntry(decisionId: string, reason: string): 
     .where(and(eq(decisions.id, decisionId), eq(decisions.extractionStatus, 'pending')))
     .returning({ id: decisions.id });
   return updated.length > 0;
+}
+
+// ── Re-embedding (used by src/jobs/embed-decision.job.ts) ──────────────────────────────────────────
+
+/**
+ * Embeds the chunks of a document whose embedding is NULL: the anonymisation job and the reviewer clear it whenever
+ * a chunk's text changes, since a vector computed from the clear names is derived from personal data.
+ * Each vector is written only if the chunk still has the text that was embedded (a reviewer may have edited it
+ * meanwhile, and that edit enqueued its own job): a stale vector never lands on newer text.
+ * Provider errors throw, so pg-boss retries.
+ */
+export async function embedMissingChunks(documentId: string): Promise<{ embedded: number; stale: number }> {
+  const rows = await db
+    .select({ id: chunks.id, content: chunks.content, sectionPath: chunks.sectionPath })
+    .from(chunks)
+    .where(and(eq(chunks.documentId, documentId), isNull(chunks.embedding)));
+  if (rows.length === 0) return { embedded: 0, stale: 0 };
+
+  const vectors = await embedDocuments(rows.map(embeddingText));
+  let embedded = 0;
+  for (const [i, row] of rows.entries()) {
+    const written = await db.update(chunks)
+      .set({ embedding: vectors[i], embeddingModel: env.EMBEDDING_MODEL })
+      .where(and(
+        eq(chunks.id, row.id),
+        isNull(chunks.embedding),
+        eq(chunks.content, row.content),
+        row.sectionPath === null ? isNull(chunks.sectionPath) : eq(chunks.sectionPath, row.sectionPath),
+      ))
+      .returning({ id: chunks.id });
+    embedded += written.length;
+  }
+  return { embedded, stale: rows.length - embedded };
 }

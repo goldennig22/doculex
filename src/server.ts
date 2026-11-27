@@ -3,6 +3,9 @@ import { env } from './config/env';
 import { sql } from './db/client';
 import { startQueue, stopQueue } from './jobs/queue';
 import { markExtractionFailed, runDecisionExtraction } from './jobs/extract-decision.job';
+import { anonymisationFailed, runAnonymisation } from './jobs/anonymise-decision.job';
+import { runEmbedDecision } from './jobs/embed-decision.job';
+import { runCitationLinking } from './jobs/link-citations.job';
 
 const app = buildApp();
 
@@ -10,7 +13,14 @@ const app = buildApp();
 const start = async () => {
   try {
     // The worker runs in the API process: one process on one VPS (same reasoning as the in-memory rate limit)
-    await startQueue({ extractDecision: runDecisionExtraction, extractionFailed: markExtractionFailed });
+    await startQueue({
+      extractDecision: runDecisionExtraction,
+      extractionFailed: markExtractionFailed,
+      anonymiseDecision: runAnonymisation,
+      anonymisationFailed,
+      embedDecision: runEmbedDecision,
+      linkCitations: runCitationLinking,
+    });
     await app.listen({ port: env.PORT, host: env.HOST });
     for (const signal of ['SIGINT', 'SIGTERM']) {
       process.on(signal, async () => {
